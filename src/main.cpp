@@ -17,6 +17,9 @@ using namespace pros;
 using namespace umbc;
 using namespace std;
 
+okapi::ConfigurableTimeUtilFactory gloabal_time_factory = okapi::ConfigurableTimeUtilFactory();
+okapi::TimeUtil global_time = gloabal_time_factory.create();
+
 umbc::Robot robot = Robot();
 
 /**
@@ -26,6 +29,7 @@ umbc::Robot robot = Robot();
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
+
 
 	INFO("initializing robot...");
 
