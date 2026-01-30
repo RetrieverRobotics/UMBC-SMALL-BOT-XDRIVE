@@ -25,8 +25,8 @@ using namespace okapi;
 #define MOTOR_BACK_L        12
 #define MOTOR_BACK_R        -11
 
-#define ARM_MOTOR_R         -11
-#define ARM_MOTOR_L         12
+#define ARM_MOTOR_R         -15
+#define ARM_MOTOR_L         17
 
 #define REST_POSITION       0
 #define GOAL_1_POSITION     -100
@@ -54,10 +54,11 @@ void umbc::Robot::opcontrol() {
 
     IterativePosPIDController arm_controler = IterativePosPIDController({KP, KI, KD, KBIAS}, global_time);
     
-
     // initialize motors and sensors
     const vector<int8_t> motors = {ARM_MOTOR_L, ARM_MOTOR_R};
     pros::Motor_Group arm_group = Motor_Group(motors);
+
+    //arm_group.set_brake_modes(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
 
     pros::Motor m1 = Motor(MOTOR_FRONT_L);
     pros::Motor m2 = Motor(MOTOR_FRONT_R);
@@ -72,12 +73,13 @@ void umbc::Robot::opcontrol() {
     cur_button_state_r2 = prev_button_state_r2;
     int state_selector = 0; //inc. or dec. variable the user changes to operate the arm state machine 
     
-    
+
     while(1) {
 
         float analog_left_x = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_X);
         float analog_left_y = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
         float analog_right_x = controller_master->get_analog(E_CONTROLLER_ANALOG_RIGHT_X);
+
         
         float S = 0;
         S = sqrt(pow(analog_left_x,2) + pow(analog_left_y,2)); //I think this would calculate distance...idk
