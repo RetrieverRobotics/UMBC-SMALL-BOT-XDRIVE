@@ -18,10 +18,11 @@ using namespace std;
 using namespace okapi;
 
 #define MOTOR_BLUE_GEAR_MULTIPLIER      600
-#define MOTOR_RED_GEAR_MULTIPLIER       300
+#define MOTOR_RED_GEAR_MULTIPLIER       50
 
 #define INTAKE_MOTOR_L        12
-#define INTAKE_MOTOR_R        15
+#define INTAKE_MOTOR_R        -15   //I think one of them has to be reversed
+#define INTAKE_MOTOR_SPEED    100
 
 #define MOTOR_FRONT_L       2
 #define MOTOR_FRONT_R       -6
@@ -35,6 +36,7 @@ using namespace okapi;
 #define GOAL_1_POSITION     -750
 //#define GOAL_2_POSITION     -300
 //#define GOAL_3_POSIITON     -800
+
 
 #define KP                  3
 #define KD                  0
@@ -58,8 +60,11 @@ void umbc::Robot::opcontrol() {
     IterativePosPIDController arm_controler = IterativePosPIDController({KP, KI, KD, KBIAS}, global_time);
     
     // initialize motors and sensors
-    const vector<int8_t> motors = {ARM_MOTOR_L, ARM_MOTOR_R};
-    pros::Motor_Group arm_group = Motor_Group(motors);
+    const vector<int8_t> arm_motors = {ARM_MOTOR_L, ARM_MOTOR_R};
+    pros::Motor_Group arm_group = Motor_Group(arm_motors);
+
+    const vector<int8_t> intake_motors = {INTAKE_MOTOR_L, INTAKE_MOTOR_R};
+    pros::Motor_Group intake_group = Motor_Group(intake_motors);
 
     //arm_group.set_brake_modes(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
 
@@ -142,6 +147,20 @@ void umbc::Robot::opcontrol() {
             cur_button_state_r2 = DIGITAL_BUTTON_STATE::BUTTON_RELEASED;
         }
 
+        if(controller_master->get_digital(E_CONTROLLER_DIGITAL_L1)) //intake game objects
+        {  
+            intake_group.move_velocity(INTAKE_MOTOR_SPEED);
+        }else{
+            intake_group.move_velocity(0);
+        }
+
+        if(controller_master->get_digital(E_CONTROLLER_DIGITAL_L2)) //output game objects
+        {  
+            intake_group.move_velocity(-INTAKE_MOTOR_SPEED);
+        }else{
+            intake_group.move_velocity(0);
+        }
+
         if((cur_button_state_r1 == DIGITAL_BUTTON_STATE::BUTTON_PRESSED) && (prev_button_state_r1 == DIGITAL_BUTTON_STATE::BUTTON_RELEASED)){
             state_selector++;
         }
@@ -166,7 +185,7 @@ void umbc::Robot::opcontrol() {
                 break;
         }
                     
-        arm_group.move_absolute(arm_controler.getTarget(), -50 * arm_controler.getOutput());
+        arm_group.move_absolute(arm_controler.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controler.getOutput());
 
         m1.move_velocity((M_lf+R) * MOTOR_BLUE_GEAR_MULTIPLIER * .01);
         m2.move_velocity((M_rf-R) * MOTOR_BLUE_GEAR_MULTIPLIER * .01);
