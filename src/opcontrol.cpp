@@ -37,17 +37,19 @@ using namespace std;
 //DOUBLE CHECK MOTORS!!!!!
   
 //ports for left motors(blue)
-#define LEFT_MOTOR_FRONT    11
-#define LEFT_MOTOR_BACK     3
+#define LEFT_MOTOR_FRONT    2
+#define LEFT_MOTOR_BACK    11
        
   
 //ports for right motors(blue)
-#define RIGHT_MOTOR_FRONT   -1
-#define RIGHT_MOTOR_BACK    -6
+#define RIGHT_MOTOR_FRONT   -6
+#define RIGHT_MOTOR_BACK    -20
 
+/*
 #define gyro_port1         'A' //port 1 for gyro
 #define gyro_port2         'B' //port 2 for gyro
 #define gyro_port3         'C' //port 3 for gyro
+*/
 
 void umbc::Robot::opcontrol() {
 
@@ -70,7 +72,7 @@ void umbc::Robot::opcontrol() {
     pros::Motor right_motor_front (RIGHT_MOTOR_FRONT);
     pros::Motor right_motor_back (RIGHT_MOTOR_BACK);
 
-
+    /*
     //GYRO STUFF
     pros::ADIAnalogIn gyro_sensor1 (gyro_port1);
     pros::ADIAnalogIn gyro_sensor2 (gyro_port2);
@@ -80,10 +82,11 @@ void umbc::Robot::opcontrol() {
     gyro_sensor2.calibrate();
     gyro_sensor3.calibrate();
 
-    double curr_angle = 0;
+    double curr_angle = 0;*/
 
     while(1) {
         //GRYO STUFF
+        /*
         double gyro_val1 = gyro_sensor1.get_value_calibrated_HR(); //using HR cause this needs to be integrated
         double gyro_val2 = gyro_sensor2.get_value_calibrated_HR();
         double gyro_val3 = gyro_sensor3.get_value_calibrated_HR();
@@ -91,14 +94,17 @@ void umbc::Robot::opcontrol() {
         double gyro_avg = (gyro_val1 + gyro_val2 + gyro_val3) / 3;
         
         //avg rot velocity in degrees per second
-        double gyro_deg = gyro_avg / 19.5;          
+        double gyro_deg = gyro_avg / 19.5;    
+        double test = gyro_val1 / 6.5;      
         
         //TUNE THIS DEADZONE
         if(fabs(gyro_deg) < 0.5){
             gyro_deg = 0;
         }
+        
 
-        curr_angle += gyro_deg * (this->opcontrol_delay_ms);
+        //curr_angle += gyro_deg * (this->opcontrol_delay_ms);
+        curr_angle += test * (this->opcontrol_delay_ms / 1000.0);
 
         if(curr_angle > 360){
             curr_angle -= 360;
@@ -108,6 +114,10 @@ void umbc::Robot::opcontrol() {
         }
 
         double curr_rad = curr_angle * (M_PI / 180);
+
+        pros::lcd::set_text(5, "curr angle: " + to_string(gyro_sensor1.get_value()));
+        */
+        //END GYRO STUFF
 
         //left joystick (target movement)
         double left_x = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_X);
@@ -120,7 +130,7 @@ void umbc::Robot::opcontrol() {
         double theta = atan2(left_y, left_x);
 
         //FOR FIELD RELATIVE
-        theta -= curr_rad; 
+        //theta -= curr_rad; 
 
         //front right and back left motors
         double power_one = -cos(theta + (M_PI/4)) / cos(M_PI/4);
@@ -155,10 +165,10 @@ void umbc::Robot::opcontrol() {
 
         
 
-        left_motor_front.move_velocity((vel_fl * (1 - abs(right_x)) + right_x)*MOTOR_BLUE_GEAR_MULTIPLIER*0.25);
-        left_motor_back.move_velocity((vel_bl * (1 - abs(right_x)) + right_x)*MOTOR_BLUE_GEAR_MULTIPLIER*0.25);
-        right_motor_front.move_velocity((vel_fr * (1 - abs(right_x)) - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER*0.25);
-        right_motor_back.move_velocity((vel_br * (1 - abs(right_x)) - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER*0.25);
+        left_motor_front.move_velocity((vel_fl * (1 - abs(right_x)) + right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
+        left_motor_back.move_velocity((vel_bl * (1 - abs(right_x)) + right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
+        right_motor_front.move_velocity((vel_fr * (1 - abs(right_x)) - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
+        right_motor_back.move_velocity((vel_br * (1 - abs(right_x)) - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
 
         // required loop delay (do not edit)
         pros::Task::delay(this->opcontrol_delay_ms);
