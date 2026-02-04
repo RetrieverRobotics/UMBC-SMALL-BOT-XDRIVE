@@ -20,18 +20,21 @@ using namespace okapi;
 #define MOTOR_BLUE_GEAR_MULTIPLIER      600
 #define MOTOR_RED_GEAR_MULTIPLIER       300
 
-#define MOTOR_FRONT_L       14
-#define MOTOR_FRONT_R       -13
-#define MOTOR_BACK_L        12
-#define MOTOR_BACK_R        -11
+#define INTAKE_MOTOR_L        12
+#define INTAKE_MOTOR_R        15
 
-#define ARM_MOTOR_R         -15
-#define ARM_MOTOR_L         17
+#define MOTOR_FRONT_L       2
+#define MOTOR_FRONT_R       -6
+#define MOTOR_BACK_L        11
+#define MOTOR_BACK_R        -20
+
+#define ARM_MOTOR_R         -21
+#define ARM_MOTOR_L         5
 
 #define REST_POSITION       0
-#define GOAL_1_POSITION     -100
-#define GOAL_2_POSITION     -300
-#define GOAL_3_POSIITON     -800
+#define GOAL_1_POSITION     -750
+//#define GOAL_2_POSITION     -300
+//#define GOAL_3_POSIITON     -800
 
 #define KP                  3
 #define KD                  0
@@ -146,8 +149,8 @@ void umbc::Robot::opcontrol() {
             state_selector--;
         }
 
-        if(state_selector > 3){
-            state_selector = 3;
+        if(state_selector > 1){
+            state_selector = 1;
         }else if (state_selector < 0){
             state_selector = 0;
         }
@@ -160,14 +163,6 @@ void umbc::Robot::opcontrol() {
             
             case GOAL_1:
                 arm_controler.setTarget(GOAL_1_POSITION);
-                break;
-            
-            case GOAL_2:
-                arm_controler.setTarget(GOAL_2_POSITION);
-                break;
-            
-            case GOAL_3:
-                arm_controler.setTarget(GOAL_3_POSIITON);
                 break;
         }
                     
