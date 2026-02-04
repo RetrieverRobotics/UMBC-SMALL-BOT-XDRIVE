@@ -122,8 +122,12 @@ void umbc::Robot::opcontrol() {
         //left joystick (target movement)
         double left_x = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_X);
         double left_y = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
+        left_x = pow(left_x, 3) / (127 * 127 * 127); //cubing for finer control
+        left_y = pow(left_y, 3) / (127 * 127 * 127); //cubing for finer control
+
         //right joystick (rotation)
         double right_x = controller_master->get_analog(E_CONTROLLER_ANALOG_RIGHT_X);
+        right_x = pow(right_x, 3) / (127 * 127 * 127); //cubing for finer control
         
         //converting to polar
         double r = sqrt(left_x * left_x + left_y * left_y);
@@ -165,10 +169,10 @@ void umbc::Robot::opcontrol() {
 
         
 
-        left_motor_front.move_velocity((vel_fl * (1 - abs(right_x)) + right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
-        left_motor_back.move_velocity((vel_bl * (1 - abs(right_x)) + right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
-        right_motor_front.move_velocity((vel_fr * (1 - abs(right_x)) - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
-        right_motor_back.move_velocity((vel_br * (1 - abs(right_x)) - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
+        left_motor_front.move_velocity((vel_fl + right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
+        left_motor_back.move_velocity((vel_bl + right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
+        right_motor_front.move_velocity((vel_fr - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
+        right_motor_back.move_velocity((vel_br - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
 
         // required loop delay (do not edit)
         pros::Task::delay(this->opcontrol_delay_ms);
