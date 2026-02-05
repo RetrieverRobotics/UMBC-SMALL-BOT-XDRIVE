@@ -26,7 +26,6 @@ using namespace umbc;
 using namespace std;
 
   
-  
 #define MOTOR_RED_GEAR_MULTIPLIER       100
 #define MOTOR_GREEN_GEAR_MULTIPLIER     200
 #define MOTOR_BLUE_GEAR_MULTIPLIER      600
@@ -59,6 +58,7 @@ using namespace std;
 #define MID_GOAL_POSITION   -100    //mid goal
 #define GOAL_2_POSITION     -300    //ask about these two
 #define GOAL_3_POSIITON     -800
+#define TARGET_ERROR        10
 
 #define KP                  3
 #define KD                  0
@@ -312,8 +312,13 @@ void umbc::Robot::opcontrol() {
         right_motor_front.move_velocity((vel_fr - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
         right_motor_back.move_velocity((vel_br - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
 
+        //error system to prevent arm motors from moving while within a close enough range of the target
+        if(abs((arm_controller.getTarget() - ((armGroup.get_positions()[0] + armGroup.get_positions()[1])/2))) > TARGET_ERROR){
+            armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput());
+        }else{
+            armGroup.move_velocity(0);
+        }
         //feeds back process varaible (average of motor positions)
-        armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput());
         arm_controller.step((armGroup.get_positions()[0] + armGroup.get_positions()[1])/2);
 
         // required loop delay (do not edit)
