@@ -116,6 +116,11 @@ void umbc::Robot::opcontrol() {
     
     enum class ARM_STATE {REST, MID_GOAL};  //implement HIGH_GOAL if the bot can reach it
     ARM_STATE cur_state = ARM_STATE::REST;
+
+
+    enum class DIGITAL_BUTTON_STATE {RELEASED, PRESSED};
+    DIGITAL_BUTTON_STATE cur_r1_state = DIGITAL_BUTTON_STATE::RELEASED, prev_r1_state = DIGITAL_BUTTON_STATE::RELEASED;
+    DIGITAL_BUTTON_STATE cur_r2_state = DIGITAL_BUTTON_STATE::RELEASED, prev_r2_state = DIGITAL_BUTTON_STATE::RELEASED;
     int state_selector = 0;
 
     /*******************************************************
@@ -220,7 +225,7 @@ void umbc::Robot::opcontrol() {
         }
 
         //INTAKE CONTROLS
-        if(controller_master->get_digital(E_CONTROLLER_DIGITAL_L2)){ //toggle intake on
+        if(controller_master->get_digital(E_CONTROLLER_DIGITAL_L1)){ //toggle intake on
             if(intakeState == INTAKE_STATE::INTAKE_ON){
                 intakeState = INTAKE_STATE::INTAKE_OFF;
             }
@@ -228,7 +233,7 @@ void umbc::Robot::opcontrol() {
                 intakeState = INTAKE_STATE::INTAKE_ON;
             }
         }
-        if(controller_master->get_digital(E_CONTROLLER_DIGITAL_R2)){ //toggle intake reverse
+        if(controller_master->get_digital(E_CONTROLLER_DIGITAL_L2)){ //toggle intake reverse
             if(intakeState == INTAKE_STATE::INTAKE_REVERSE){
                 intakeState = INTAKE_STATE::INTAKE_OFF;
             }
@@ -239,10 +244,21 @@ void umbc::Robot::opcontrol() {
 
         //LIFT CONTROLS
         if(controller_master->get_digital(E_CONTROLLER_DIGITAL_R1)){ //move arm up
-            state_selector++;
+            cur_r1_state = DIGITAL_BUTTON_STATE::PRESSED;
+        }else{
+            cur_r1_state = DIGITAL_BUTTON_STATE::RELEASED;
         }
 
         if(controller_master->get_digital(E_CONTROLLER_DIGITAL_R2)){ //move arm down
+            cur_r2_state = DIGITAL_BUTTON_STATE::PRESSED;
+        }else{
+            cur_r2_state = DIGITAL_BUTTON_STATE::RELEASED;
+        }
+
+        if((cur_r1_state == DIGITAL_BUTTON_STATE::PRESSED) && (prev_r1_state == DIGITAL_BUTTON_STATE::RELEASED)){
+            state_selector++;
+        }
+         if((cur_r2_state == DIGITAL_BUTTON_STATE::PRESSED) && (prev_r2_state == DIGITAL_BUTTON_STATE::RELEASED)){
             state_selector--;
         }
 
@@ -296,7 +312,8 @@ void umbc::Robot::opcontrol() {
         right_motor_front.move_velocity((vel_fr - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
         right_motor_back.move_velocity((vel_br - right_x)*MOTOR_BLUE_GEAR_MULTIPLIER);
 
-        //lift motors
+        //feeds back process varaible (average of motor positions)
+        armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput());
         arm_controller.step((armGroup.get_positions()[0] + armGroup.get_positions()[1])/2);
 
         // required loop delay (do not edit)
