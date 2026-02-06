@@ -270,13 +270,18 @@ void umbc::Robot::opcontrol() {
                 intake_motor_right.move_velocity(0);
                 break;
             case INTAKE_STATE::INTAKE_ON:
-                intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
-                intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+                intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * -0.85);
+                intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * -0.85);
                 break;
             case INTAKE_STATE::INTAKE_REVERSE:
-
-                intake_motor_left.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * 0.35);
-                intake_motor_right.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * 0.35);
+                if(score_slow){
+                    intake_motor_left.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * -0.2);
+                    intake_motor_right.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * -0.2);
+                }
+                else{
+                    intake_motor_left.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * -0.35);
+                    intake_motor_right.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * -0.35);
+                }
                 break;
         }
         
