@@ -190,7 +190,7 @@ void umbc::Robot::opcontrol() {
         driveState = (DRIVE_STATE)speed_state_selector;
         
         //INTAKE CONTROLS
-        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2)){ //toggle intake on
+        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R1)){ //toggle intake on
             if(intakeState == INTAKE_STATE::INTAKE_ON){
                 intakeState = INTAKE_STATE::INTAKE_OFF;
             }
@@ -198,7 +198,7 @@ void umbc::Robot::opcontrol() {
                 intakeState = INTAKE_STATE::INTAKE_ON;
             }
         }
-        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R1)){ //toggle intake reverse
+        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2)){ //toggle intake reverse
             if(intakeState == INTAKE_STATE::INTAKE_REVERSE){
                 intakeState = INTAKE_STATE::INTAKE_OFF;
             }
@@ -225,8 +225,8 @@ void umbc::Robot::opcontrol() {
 
         switch (cur_state){
             case ARM_STATE::REST:
-                arm_controller.setTarget(REST_POSITION);
                 score_slow = false;
+                arm_controller.setTarget(REST_POSITION);
                 break;
             
             case ARM_STATE::MID_GOAL:
@@ -275,12 +275,12 @@ void umbc::Robot::opcontrol() {
                 break;
             case INTAKE_STATE::INTAKE_REVERSE:
                 if(score_slow){
-                    intake_motor_left.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * -0.2);
-                    intake_motor_right.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * -0.2);
+                    intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
+                    intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
                 }
                 else{
-                    intake_motor_left.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * -0.35);
-                    intake_motor_right.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * -0.35);
+                    intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.35);
+                    intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.35);
                 }
                 break;
         }
