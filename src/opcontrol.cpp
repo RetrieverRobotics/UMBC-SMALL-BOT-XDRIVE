@@ -128,6 +128,8 @@ void umbc::Robot::opcontrol() {
     DRIVE_STATE driveState = DRIVE_STATE::DEFAULT_DRIVE;
     int speed_state_selector = 1;
 
+    bool score_slow = false;
+
     while(1) {
         //left joystick (target movement)
         double left_x = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_X);
@@ -224,9 +226,11 @@ void umbc::Robot::opcontrol() {
         switch (cur_state){
             case ARM_STATE::REST:
                 arm_controller.setTarget(REST_POSITION);
+                score_slow = false;
                 break;
             
             case ARM_STATE::MID_GOAL:
+                score_slow = true;
                 arm_controller.setTarget(MID_GOAL_POSITION);
                 break;
         }
@@ -270,8 +274,9 @@ void umbc::Robot::opcontrol() {
                 intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
                 break;
             case INTAKE_STATE::INTAKE_REVERSE:
-                intake_motor_left.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * 0.75);
-                intake_motor_right.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * 0.75);
+
+                intake_motor_left.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * 0.35);
+                intake_motor_right.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * 0.35);
                 break;
         }
         
