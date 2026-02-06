@@ -33,7 +33,7 @@ using namespace std;
 #define REVERSED(port)                  -port
 
 #define INTAKE_MOTOR_SPEED              100
-#define TARGET_ERROR                    10 
+#define TARGET_ERROR                    10
  
  
 //left and right are relative to the robot's left and right
@@ -55,10 +55,10 @@ using namespace std;
 
 //ports for intake motors
 #define INTAKE_MOTOR_LEFT       12
-#define INTAKE_MOTOR_RIGHT     -18
+#define INTAKE_MOTOR_RIGHT     -15
+#define REST_POSITION          -65     //low goal
+#define MID_GOAL_POSITION      -850    //mid goal
 
-#define REST_POSITION       -100    //low goal
-#define MID_GOAL_POSITION   -850    //mid goal
 
 #define KP                   3
 #define KD                   0
@@ -80,7 +80,7 @@ void umbc::Robot::opcontrol() {
     //initialize motors
     std::vector<int8_t> drive_motors{LEFT_MOTOR_FRONT, LEFT_MOTOR_BACK, RIGHT_MOTOR_FRONT, RIGHT_MOTOR_BACK};
     std::vector<int8_t> intake_motors{INTAKE_MOTOR_LEFT, INTAKE_MOTOR_RIGHT};
-    std::vector<int8_t> arm_motors{ARM_MOTOR_LEFT, ARM_MOTOR_RIGHT};
+    std::vector<int8_t> arm_motors{ARM_MOTOR_RIGHT, ARM_MOTOR_LEFT};
     pros::MotorGroup driveGroup (drive_motors);
     pros::MotorGroup intakeGroup (intake_motors);
     pros::MotorGroup armGroup (arm_motors);
@@ -110,6 +110,10 @@ void umbc::Robot::opcontrol() {
     pros::Motor intake_motor_left (INTAKE_MOTOR_LEFT);
     pros::Motor intake_motor_right (INTAKE_MOTOR_RIGHT);
 
+    //arm motors
+    pros::Motor arm_motor_right (ARM_MOTOR_RIGHT);
+    pros::Motor arm_motor_left (ARM_MOTOR_LEFT);
+
     //motor states
     bool slowSpeedButton = false;
 
@@ -118,12 +122,11 @@ void umbc::Robot::opcontrol() {
     
     enum class ARM_STATE {REST, MID_GOAL};  //implement HIGH_GOAL if the bot can reach it
     ARM_STATE cur_state = ARM_STATE::REST;
+    int arm_state_selector = 0;
 
-
-    enum class DIGITAL_BUTTON_STATE {RELEASED, PRESSED};
-    DIGITAL_BUTTON_STATE cur_r1_state = DIGITAL_BUTTON_STATE::RELEASED, prev_r1_state = DIGITAL_BUTTON_STATE::RELEASED;
-    DIGITAL_BUTTON_STATE cur_r2_state = DIGITAL_BUTTON_STATE::RELEASED, prev_r2_state = DIGITAL_BUTTON_STATE::RELEASED;
-    int state_selector = 0;
+    enum class DRIVE_STATE {SLOW_DRIVE, DEFAULT_DRIVE, FAST_DRIVE};
+    DRIVE_STATE driveState = DRIVE_STATE::DEFAULT_DRIVE;
+    int speed_state_selector = 1;
 
     while(1) {
         //left joystick (target movement)
@@ -156,8 +159,6 @@ void umbc::Robot::opcontrol() {
         double speed = 0;
         if(radius != 0){
             speed = max({fabs(power_back_left), fabs(power_back_right), fabs(power_front_left), fabs(power_front_right)}) / radius;
-            //speed2 = max(fabs(power_front_left), fabs(power_front_right));
-            //speed = max(speed1, speed2) / radius;
         }
 
         double vel_fl = 0;
@@ -173,11 +174,18 @@ void umbc::Robot::opcontrol() {
         
         //SPEED CONTROL
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_UP)){ //toggle slow speed
-            slowSpeedButton = false;
+            speed_state_selector++;
         }
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_DOWN)){ //toggle slow speed
-            slowSpeedButton = true;
+            speed_state_selector--;
         }
+
+        if(speed_state_selector > 2){
+            speed_state_selector = 2;
+        }else if (speed_state_selector < 0){
+            speed_state_selector = 0;
+        }
+        driveState = (DRIVE_STATE)speed_state_selector;
         
         //INTAKE CONTROLS
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2)){ //toggle intake on
@@ -199,19 +207,19 @@ void umbc::Robot::opcontrol() {
     
         //LIFT CONTROLS
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_L1)){ //move arm up
-            state_selector++;
+            arm_state_selector++;
         }
 
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_L2)){ //move arm down
-            state_selector--;
+            arm_state_selector--;
         }
 
-        if(state_selector > 1){
-            state_selector = 1;
-        }else if (state_selector < 0){
-            state_selector = 0;
+        if(arm_state_selector > 1){
+            arm_state_selector = 1;
+        }else if (arm_state_selector < 0){
+            arm_state_selector = 0;
         }
-        cur_state = (ARM_STATE)state_selector;
+        cur_state = (ARM_STATE)arm_state_selector;
 
         switch (cur_state){
             case ARM_STATE::REST:
@@ -222,17 +230,35 @@ void umbc::Robot::opcontrol() {
                 arm_controller.setTarget(MID_GOAL_POSITION);
                 break;
         }
-        
+        /*
+        if(controller_master->get_digital(E_CONTROLLER_DIGITAL_RIGHT)){ //override arm control
+            cur_state = ARM_STATE::OVERRIDE_UP;
+        }
+        if(controller_master->get_digital(E_CONTROLLER_DIGITAL_LEFT)){ //override arm control
+            cur_state = ARM_STATE::OVERRIDE_DOWN;
+        }
+        */
 
         //MOVING MOTORS
         //slow speed if toggled on
-        if(slowSpeedButton){
-            vel_fl *= 0.5;
-            vel_fr *= 0.5;
-            vel_bl *= 0.5;
-            vel_br *= 0.5;
+
+        switch(driveState){
+            case DRIVE_STATE::SLOW_DRIVE:
+                vel_fl *= 0.5;
+                vel_fr *= 0.5;
+                vel_bl *= 0.5;
+                vel_br *= 0.5;
+                break;
+            case DRIVE_STATE::DEFAULT_DRIVE:
+                break;
+            case DRIVE_STATE::FAST_DRIVE:
+                vel_fl *= 1.25;
+                vel_fr *= 1.25;
+                vel_bl *= 1.25;
+                vel_br *= 1.25;
+                break;
         }
-        
+
         //intake motors
         switch(intakeState){
             case INTAKE_STATE::INTAKE_OFF:
@@ -244,8 +270,8 @@ void umbc::Robot::opcontrol() {
                 intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
                 break;
             case INTAKE_STATE::INTAKE_REVERSE:
-                intake_motor_left.move_velocity(-200);
-                intake_motor_right.move_velocity(-200);
+                intake_motor_left.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * 0.75);
+                intake_motor_right.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * 0.75);
                 break;
         }
         
@@ -256,13 +282,11 @@ void umbc::Robot::opcontrol() {
         right_motor_back.move_velocity((vel_br - right_x)*MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
 
         //lift motors
-        //error system to prevent arm motors from moving while within a close enough range of the target
-        if(abs((arm_controller.getTarget() - ((armGroup.get_positions()[0] + armGroup.get_positions()[1])/2))) > TARGET_ERROR){
-            armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput() * 0.25); //DO NOT CHANGE THIS VALUE WITHOUT TESTING
-        }else{
-            armGroup.move_velocity(0);
-        }
-        //feeds back process varaible (average of motor positions)
+        armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput()*0.35);
+
+        //moving both individually rather than as a group
+        //arm_motor_right.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput()*0.35);
+        //arm_motor_left.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput()*0.35);
         arm_controller.step((armGroup.get_positions()[0] + armGroup.get_positions()[1])/2);
         
 
