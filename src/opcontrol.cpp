@@ -20,6 +20,8 @@
 #include <time.h>
 #include <vector>
 #include <cmath>
+#include <fstream>
+#include <ctime>
 
 using namespace pros;
 using namespace umbc;
@@ -62,6 +64,14 @@ using namespace std;
 #define KI 0
 #define KBIAS 0
 
+// initialize motors
+std::vector<int8_t> drive_motors{LEFT_MOTOR_FRONT, LEFT_MOTOR_BACK, RIGHT_MOTOR_FRONT, RIGHT_MOTOR_BACK};
+std::vector<int8_t> intake_motors{INTAKE_MOTOR_LEFT, INTAKE_MOTOR_RIGHT};
+std::vector<int8_t> arm_motors{ARM_MOTOR_LEFT, ARM_MOTOR_RIGHT};
+pros::MotorGroup driveGroup(drive_motors);
+pros::MotorGroup intakeGroup(intake_motors);
+pros::MotorGroup armGroup(arm_motors);
+
 void umbc::Robot::opcontrol()
 {
 
@@ -73,14 +83,6 @@ void umbc::Robot::opcontrol()
     okapi::ConfigurableTimeUtilFactory global_time_factory;
     okapi::TimeUtil global_time = global_time_factory.create();
     okapi::IterativePosPIDController arm_controller(KP, KI, KD, KBIAS, global_time);
-
-    // initialize motors
-    std::vector<int8_t> drive_motors{LEFT_MOTOR_FRONT, LEFT_MOTOR_BACK, RIGHT_MOTOR_FRONT, RIGHT_MOTOR_BACK};
-    std::vector<int8_t> intake_motors{INTAKE_MOTOR_LEFT, INTAKE_MOTOR_RIGHT};
-    std::vector<int8_t> arm_motors{ARM_MOTOR_LEFT, ARM_MOTOR_RIGHT};
-    pros::MotorGroup driveGroup(drive_motors);
-    pros::MotorGroup intakeGroup(intake_motors);
-    pros::MotorGroup armGroup(arm_motors);
 
     // brakes and gearing
     // DRIVE
@@ -292,11 +294,43 @@ void umbc::Robot::opcontrol()
     }
 }
 
+// Ignore my code formatting, vscode thinks ts is cute vro </3
 void doctor()
 {
+    // This is just a telemetry system to dump info on an sd card
+
+    // File write Stream
+    ofstream telemetry_file("doctors_diagnosis.txt");
+    drive_doctor(telemetry_file);
+    intake_doctor();
+    arm_doctor();
 }
 
-void drive_doctor() {}
+void drive_doctor(ofstream &writestream)
+{
+
+    // Get function timestamp so we actually know when issues arise
+    time_t timestamp;
+    time(&timestamp);
+
+    // Temperature Check
+    std::vector<std::int32_t> driveTempCheck = driveGroup.is_over_temp_all();
+    for (int i = 0; i < driveTempCheck.size(); ++i)
+    {
+    }
+
+    // Current Check
+    std::vector<std::int32_t> driveCurrentCheck = driveGroup.is_over_temp_all();
+    for (int i = 0; i < driveCurrentCheck.size(); ++i)
+    {
+    }
+
+    // Efficiency Check
+    std::vector<double> driveEfficiencies = driveGroup.get_efficiency_all();
+    for (int i = 0; i < driveEfficiencies.size(); ++i)
+    {
+    }
+}
 
 void intake_doctor() {}
 
