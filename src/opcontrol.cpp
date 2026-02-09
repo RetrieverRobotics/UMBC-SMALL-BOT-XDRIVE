@@ -300,7 +300,7 @@ void doctor()
     // This is just a telemetry system to dump info on an sd card
 
     // File write Stream
-    ofstream telemetry_file("doctors_diagnosis.txt");
+    ofstream telemetry_file("/usd/doctors_diagnosis.txt"); // Might move this to calling function so I can open and close once there
     drive_doctor(telemetry_file);
     intake_doctor();
     arm_doctor();
@@ -320,7 +320,7 @@ void drive_doctor(ofstream &writestream)
     }
 
     // Current Check
-    std::vector<std::int32_t> driveCurrentCheck = driveGroup.is_over_temp_all();
+    std::vector<std::int32_t> driveCurrentCheck = driveGroup.is_over_current_all();
     for (int i = 0; i < driveCurrentCheck.size(); ++i)
     {
     }
