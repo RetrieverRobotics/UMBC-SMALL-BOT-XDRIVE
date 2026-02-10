@@ -121,14 +121,15 @@ void umbc::Robot::opcontrol() {
     INTAKE_STATE intakeState = INTAKE_STATE::INTAKE_OFF;
     
     enum class ARM_STATE {REST, MID_GOAL};  //implement HIGH_GOAL if the bot can reach it
-    ARM_STATE cur_state = ARM_STATE::REST;
+    ARM_STATE cur_arm_state = ARM_STATE::REST;
     int arm_state_selector = 0;
 
     enum class DRIVE_STATE {SLOW_DRIVE, DEFAULT_DRIVE, FAST_DRIVE};
     DRIVE_STATE driveState = DRIVE_STATE::DEFAULT_DRIVE;
     int speed_state_selector = 1;
 
-    bool score_slow = false;
+    enum class SCORE_SPEED{SLOW, DEFAULT, FAST};
+    int score_speed_selector = 1;
 
     while(1) {
         //left joystick (target movement)
@@ -206,8 +207,25 @@ void umbc::Robot::opcontrol() {
                 intakeState = INTAKE_STATE::INTAKE_REVERSE;
             }
         }
+
+        if(controller_master->get_digital(E_CONTROLLER_DIGITAL_RIGHT)){ //changes score speed, mainly for skills
+            score_speed_selector++;
+        }
+        if(controller_master->get_digital(E_CONTROLLER_DIGITAL_LEFT)){ //changes score speed, mainly for skills
+            score_speed_selector--;
+        }
+
+        if(score_speed_selector > 2){
+            score_speed_selector = 2;
+        }else if (score_speed_selector < 0){
+            score_speed_selector = 0;
+        }
+
+        SCORE_SPEED score_speed = (SCORE_SPEED)score_speed_selector;
     
         //LIFT CONTROLS
+        //for overide, add toggle button, then just switch code for L1 and L2
+
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_L1)){ //move arm up
             arm_state_selector++;
         }
@@ -221,25 +239,23 @@ void umbc::Robot::opcontrol() {
         }else if (arm_state_selector < 0){
             arm_state_selector = 0;
         }
-        cur_state = (ARM_STATE)arm_state_selector;
+        cur_arm_state = (ARM_STATE)arm_state_selector;
 
-        switch (cur_state){
+        switch (cur_arm_state){
             case ARM_STATE::REST:
-                score_slow = false;
                 arm_controller.setTarget(REST_POSITION);
                 break;
             
             case ARM_STATE::MID_GOAL:
-                score_slow = true;
                 arm_controller.setTarget(MID_GOAL_POSITION);
                 break;
         }
         /*
         if(controller_master->get_digital(E_CONTROLLER_DIGITAL_RIGHT)){ //override arm control
-            cur_state = ARM_STATE::OVERRIDE_UP;
+            cur_arm_state = ARM_STATE::OVERRIDE_UP;
         }
         if(controller_master->get_digital(E_CONTROLLER_DIGITAL_LEFT)){ //override arm control
-            cur_state = ARM_STATE::OVERRIDE_DOWN;
+            cur_arm_state = ARM_STATE::OVERRIDE_DOWN;
         }
         */
 
@@ -274,13 +290,37 @@ void umbc::Robot::opcontrol() {
                 intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * -0.85);
                 break;
             case INTAKE_STATE::INTAKE_REVERSE:
-                if(score_slow){
-                    intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
-                    intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
-                }
-                else{
-                    intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.35);
-                    intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.35);
+
+                switch(cur_arm_state){
+                    case ARM_STATE::REST:
+                        if(score_speed == SCORE_SPEED::SLOW){
+                            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
+                            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
+                        }
+                        else if(score_speed == SCORE_SPEED::DEFAULT){
+                            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.35);
+                            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.35);
+                        }
+                        else{
+                            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+                            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+                        }
+                        break;
+                    
+                    case ARM_STATE::MID_GOAL:
+                        if(score_speed == SCORE_SPEED::SLOW){
+                            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
+                            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
+                        }
+                        else if(score_speed == SCORE_SPEED::DEFAULT){
+                            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
+                            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
+                        }
+                        else{
+                            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+                            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+                        }
+                        break;
                 }
                 break;
         }
@@ -292,7 +332,8 @@ void umbc::Robot::opcontrol() {
         right_motor_back.move_velocity((vel_br - right_x)*MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
 
         //lift motors
-        armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput()*0.35);
+        //armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput()*0.35);
+        armGroup.move_voltage(arm_controller.getOutput()*12000);//TEST THIS
 
         //moving both individually rather than as a group
         //arm_motor_right.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput()*0.35);
