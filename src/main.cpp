@@ -17,6 +17,7 @@ using namespace pros;
 using namespace umbc;
 using namespace std;
 
+
 umbc::Robot robot = Robot();
 
 /**
@@ -26,6 +27,7 @@ umbc::Robot robot = Robot();
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
+
 
 	INFO("initializing robot...");
 
