@@ -35,31 +35,6 @@ using namespace std;
 #define INTAKE_MOTOR_SPEED              100
 #define TARGET_ERROR                    10
  
- 
-//left and right are relative to the robot's left and right
- 
-//DOUBLE CHECK MOTORS!!!!!
-  
-//ports for left drive motors (green)
-#define LEFT_MOTOR_FRONT        2
-#define LEFT_MOTOR_BACK         11
-       
-  
-//ports for right drive motors (green)
-#define RIGHT_MOTOR_FRONT      -6
-#define RIGHT_MOTOR_BACK       -20
-
-//ports for lift motors (red)
-#define ARM_MOTOR_RIGHT        -21
-#define ARM_MOTOR_LEFT          5
-
-//ports for intake motors (blue)
-#define INTAKE_MOTOR_LEFT       12
-#define INTAKE_MOTOR_RIGHT     -15
-#define REST_POSITION          -65    //low goal
-#define MID_GOAL_POSITION      -850    //mid goal
-
-/*
 class PIDController {
     private:
         double kp;
@@ -97,13 +72,41 @@ class PIDController {
 
             return pidCalc_scaled;
         }
-};
-*/
+}; 
 
-#define KP                   3
-#define KD                   0
-#define KI                   0
+
+//left and right are relative to the robot's left and right
+ 
+//DOUBLE CHECK MOTORS!!!!!
+  
+//ports for left drive motors (green)
+#define LEFT_MOTOR_FRONT        2
+#define LEFT_MOTOR_BACK         11
+       
+  
+//ports for right drive motors (green)
+#define RIGHT_MOTOR_FRONT      -6
+#define RIGHT_MOTOR_BACK       -20
+
+//ports for lift motors (red)
+#define ARM_MOTOR_RIGHT        -21
+#define ARM_MOTOR_LEFT          5
+
+//ports for intake motors (blue)
+#define INTAKE_MOTOR_LEFT       12
+#define INTAKE_MOTOR_RIGHT     -15
+#define REST_POSITION           0    //low goal
+#define MID_GOAL_POSITION      -915    //mid goal
+
+
+#define KP                   1
+#define KD                   0.05
+#define KI                   0.2
 #define KBIAS                0
+
+double leftArmMotorZero = 0;
+double rightArmMotorZero = 0;
+double armTarget = 0;
 
 void umbc::Robot::opcontrol() {
 
@@ -112,11 +115,13 @@ void umbc::Robot::opcontrol() {
     umbc::Controller* controller_partner = this->controller_partner;
 
     //initialize PID controller for arm
-    
+    /*
     okapi::ConfigurableTimeUtilFactory global_time_factory;
     okapi::TimeUtil global_time = global_time_factory.create();
     okapi::IterativePosPIDController arm_controller(KP, KI, KD, KBIAS, global_time);
-    
+    */
+    PIDController leftArmPID(KP, KI, KD, KBIAS);
+    PIDController rightArmPID(KP, KI, KD, KBIAS);
     
     //initialize motors
     std::vector<int8_t> drive_motors{LEFT_MOTOR_FRONT, LEFT_MOTOR_BACK, RIGHT_MOTOR_FRONT, RIGHT_MOTOR_BACK};
@@ -154,6 +159,8 @@ void umbc::Robot::opcontrol() {
     //arm motors
     pros::Motor arm_motor_right (ARM_MOTOR_RIGHT);
     pros::Motor arm_motor_left (ARM_MOTOR_LEFT);
+    leftArmMotorZero = arm_motor_left.get_position();
+    rightArmMotorZero = arm_motor_right.get_position();
 
     //motor states
     bool slowSpeedButton = false;
@@ -285,11 +292,11 @@ void umbc::Robot::opcontrol() {
         
         switch (cur_arm_state){
             case ARM_STATE::REST:
-                arm_controller.setTarget(REST_POSITION);
+                armTarget = REST_POSITION;
                 break;
             
             case ARM_STATE::MID_GOAL:
-                arm_controller.setTarget(REST_POSITION);
+                armTarget = MID_GOAL_POSITION;
                 break;
         }
                 
@@ -348,15 +355,15 @@ void umbc::Robot::opcontrol() {
 
         //lift motors
 
-        //double leftArmVolt = leftArmPID.calculatePID(armTarget, arm_motor_left.get_position() - leftArmMotorZero);
-        //double rightArmVolt = rightArmPID.calculatePID(armTarget, arm_motor_right.get_position() - rightArmMotorZero);
+        double leftArmVolt = leftArmPID.calculatePID(armTarget, arm_motor_left.get_position() - leftArmMotorZero);
+        double rightArmVolt = rightArmPID.calculatePID(armTarget, arm_motor_right.get_position() - rightArmMotorZero);
 
-        //arm_motor_left.move_voltage(leftArmVolt);
-        //arm_motor_right.move_voltage(rightArmVolt);
+        arm_motor_left.move_voltage(leftArmVolt);
+        arm_motor_right.move_voltage(rightArmVolt);
 
-        armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput()*0.35);
+        //armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput()*0.35);
 
-        arm_controller.step((armGroup.get_positions()[0] + armGroup.get_positions()[1])/2);
+        //arm_controller.step((armGroup.get_positions()[0] + armGroup.get_positions()[1])/2);
         
 
         // required loop delay (do not edit)
