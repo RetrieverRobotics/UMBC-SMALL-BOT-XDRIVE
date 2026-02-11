@@ -298,9 +298,11 @@ void umbc::Robot::opcontrol()
 void doctor()
 {
     // This is just a telemetry system to dump info on an sd card
+    // NOTE: THIS FUNCTION SHOULD BE MULTITHREADED
+    // This code is written by your GOAT Joshua Davey (no need for applause)
 
     // File write Stream
-    ofstream telemetry_file("/usd/doctors_diagnosis.txt"); // Might move this to calling function so I can open and close once there
+    ofstream telemetry_file("/usd/doctors_diagnosis.txt"); // will move this to calling function so I can open and close once there
     drive_doctor(telemetry_file);
     intake_doctor();
     arm_doctor();
@@ -314,21 +316,30 @@ void drive_doctor(ofstream &writestream)
     time(&timestamp);
 
     // Temperature Check
-    std::vector<std::int32_t> driveTempCheck = driveGroup.is_over_temp_all();
+    std::vector<std::int32_t> driveTempCheck = driveGroup.is_over_temp_all(); // returns 1 if temperature is over limit else 0
     for (int i = 0; i < driveTempCheck.size(); ++i)
     {
+        if (driveTempCheck[i])
+        {
+            std::cout << "Motor {MOTOR_HERE} is over temperature limit" << "\n"; // Adjust for file append
+        }
     }
 
     // Current Check
-    std::vector<std::int32_t> driveCurrentCheck = driveGroup.is_over_current_all();
+    std::vector<std::int32_t> driveCurrentCheck = driveGroup.is_over_current_all(); // returns 1 if current is over limit else 0
     for (int i = 0; i < driveCurrentCheck.size(); ++i)
     {
+        if (driveCurrentCheck[i])
+        {
+            std::cout << "Motor {MOTOR_HERE} is over current limit" << "\n"; // Adjust for file append
+        }
     }
 
     // Efficiency Check
-    std::vector<double> driveEfficiencies = driveGroup.get_efficiency_all();
+    std::vector<double> driveEfficiencies = driveGroup.get_efficiency_all(); // 0% means motor is drawing power and not moving, while 100% means motor is moving without drawing power
     for (int i = 0; i < driveEfficiencies.size(); ++i)
     {
+        std::cout << "Motor {MOTOR_HERE}'s has an efficiency of 0.0(placeholder duh)";
     }
 }
 
