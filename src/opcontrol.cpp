@@ -289,7 +289,7 @@ void umbc::Robot::opcontrol() {
                 break;
             
             case ARM_STATE::MID_GOAL:
-                arm_controller.setTarget(REST_POSITION);
+                arm_controller.setTarget(MID_GOAL_POSITION);
                 break;
         }
                 
