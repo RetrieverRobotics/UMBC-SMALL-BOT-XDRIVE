@@ -46,7 +46,7 @@ using namespace std;
        
   
 //ports for right drive motors (green)
-#define RIGHT_MOTOR_FRONT      -6
+#define RIGHT_MOTOR_FRONT      -7
 #define RIGHT_MOTOR_BACK       -20
 
 //ports for lift motors (red)
