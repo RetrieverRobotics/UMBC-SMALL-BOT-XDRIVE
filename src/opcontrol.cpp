@@ -33,7 +33,8 @@ using namespace std;
 #define REVERSED(port)                  -port
 
 #define INTAKE_MOTOR_SPEED              100
-#define TARGET_ERROR                    10
+#define TARGET_ERROR                    10000000
+#define dt                              10;
  
 class PIDController {
     private:
@@ -55,10 +56,17 @@ class PIDController {
             kBias = bias;
         }
 
+        void reset(){
+            error = 0;
+            prev_error = 0;
+            changeError = 0;
+            totalError = 0;
+        }
+
         double calculatePID(double target, double current){
             error = target - current;
-            changeError = error - prev_error;
-            totalError += error;
+            changeError = (error - prev_error)/dt;
+            totalError += error * dt;
             prev_error = error;
 
             //capping totalError to prevent possible overshooting
@@ -85,7 +93,7 @@ class PIDController {
        
   
 //ports for right drive motors (green)
-#define RIGHT_MOTOR_FRONT      -6
+#define RIGHT_MOTOR_FRONT      -7
 #define RIGHT_MOTOR_BACK       -20
 
 //ports for lift motors (red)
@@ -99,10 +107,10 @@ class PIDController {
 #define MID_GOAL_POSITION      -915    //mid goal
 
 
-#define KP                   1
-#define KD                   0.05
-#define KI                   0.2
-#define KBIAS                0
+#define KP                   0.5
+#define KD                   0.01
+#define KI                   0
+#define KBIAS                10
 
 double leftArmMotorZero = 0;
 double rightArmMotorZero = 0;
@@ -361,8 +369,19 @@ void umbc::Robot::opcontrol() {
 
         //lift motors
 
-        double leftArmVolt = leftArmPID.calculatePID(armTarget, arm_motor_left.get_position() - leftArmMotorZero);
-        double rightArmVolt = rightArmPID.calculatePID(armTarget, arm_motor_right.get_position() - rightArmMotorZero);
+        double leftArmVolt = 0;
+        double rightArmVolt = 0;
+
+        if(!(fabs(arm_motor_left.get_position() - leftArmMotorZero - armTarget) < TARGET_ERROR &&
+           fabs(arm_motor_right.get_position() - rightArmMotorZero - armTarget) < TARGET_ERROR)){
+            leftArmVolt = leftArmPID.calculatePID(armTarget, arm_motor_left.get_position() - leftArmMotorZero);
+            rightArmVolt = rightArmPID.calculatePID(armTarget, arm_motor_right.get_position() - rightArmMotorZero);
+        }
+        else{
+            leftArmPID.reset();
+            rightArmPID.reset();
+        }
+        
 
         arm_motor_left.move_voltage(leftArmVolt);
         arm_motor_right.move_voltage(rightArmVolt);
