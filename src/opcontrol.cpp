@@ -33,8 +33,8 @@ using namespace std;
 #define REVERSED(port)                  -port
 
 #define INTAKE_MOTOR_SPEED              100
-#define TARGET_ERROR                    10000000
-#define dt                              10;
+#define TARGET_ERROR                    10
+#define dt                              10
  
 class PIDController {
     private:
@@ -107,10 +107,10 @@ class PIDController {
 #define MID_GOAL_POSITION      -915    //mid goal
 
 
-#define KP                   0.5
-#define KD                   0.01
+#define KP                   0.1
+#define KD                   0.1
 #define KI                   0
-#define KBIAS                10
+#define KBIAS                -20
 
 double leftArmMotorZero = 0;
 double rightArmMotorZero = 0;
@@ -380,6 +380,7 @@ void umbc::Robot::opcontrol() {
         else{
             leftArmPID.reset();
             rightArmPID.reset();
+            pros::lcd::print(5, "Arm at target");
         }
         
 
