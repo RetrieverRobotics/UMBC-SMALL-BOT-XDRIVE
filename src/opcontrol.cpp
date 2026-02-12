@@ -162,7 +162,7 @@ void umbc::Robot::opcontrol() {
     INTAKE_STATE intakeState = INTAKE_STATE::INTAKE_OFF;
     
     enum class ARM_STATE {REST, MID_GOAL};  //implement HIGH_GOAL if the bot can reach it
-    ARM_STATE cur_arm_state = ARM_STATE::REST;
+    ARM_STATE arm_state = ARM_STATE::REST;
     int arm_state_selector = 0;
 
     enum class DRIVE_STATE {SLOW_DRIVE, DEFAULT_DRIVE, FAST_DRIVE};
@@ -263,6 +263,13 @@ void umbc::Robot::opcontrol() {
         }
 
         SCORE_SPEED score_speed = (SCORE_SPEED)score_speed_selector;
+
+        //RETURN TO DEFAULT
+        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_Y)){
+            score_speed_selector = (int)SCORE_SPEED::DEFAULT;
+            driveState = DRIVE_STATE::DEFAULT_DRIVE;
+            arm_state_selector = (int)ARM_STATE::REST;
+        }
     
         //LIFT CONTROLS
         //for overide, add toggle button, then just switch code for L1 and L2
@@ -280,10 +287,10 @@ void umbc::Robot::opcontrol() {
         }else if (arm_state_selector < 0){
             arm_state_selector = 0;
         }
-        cur_arm_state = (ARM_STATE)arm_state_selector;
+        arm_state = (ARM_STATE)arm_state_selector;
 
         
-        switch (cur_arm_state){
+        switch (arm_state){
             case ARM_STATE::REST:
                 arm_controller.setTarget(REST_POSITION);
                 break;
