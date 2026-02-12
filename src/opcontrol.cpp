@@ -267,7 +267,7 @@ void umbc::Robot::opcontrol() {
         //RETURN TO DEFAULT
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_Y)){
             score_speed_selector = (int)SCORE_SPEED::DEFAULT;
-            driveState = DRIVE_STATE::DEFAULT_DRIVE;
+            speed_state_selector = (int)DRIVE_STATE::DEFAULT_DRIVE;
             arm_state_selector = (int)ARM_STATE::REST;
         }
     
