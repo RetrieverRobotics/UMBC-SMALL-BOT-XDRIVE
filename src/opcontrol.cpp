@@ -380,7 +380,6 @@ void umbc::Robot::opcontrol() {
         else{
             leftArmPID.reset();
             rightArmPID.reset();
-            pros::lcd::print(5, "Arm at target");
         }
         
 
