@@ -101,9 +101,13 @@ class PIDController {
 #define ARM_MOTOR_LEFT          5
 
 //ports for intake motors (blue)
-#define INTAKE_MOTOR_LEFT       12
-#define INTAKE_MOTOR_RIGHT     -15
-#define REST_POSITION           0    //low goal
+#define INTAKE_MOTOR_LEFT                   12
+#define INTAKE_MOTOR_RIGHT                  -15
+#define INTAKE_SINGLE_OUT_TIMMER_DEFAULT    750
+#define INTAKE_SINGLE_OUT_TIMMER_SLOW       1000
+#define INTAKE_SINGLE_OUT_TIMMER_FAST       500
+
+#define REST_POSITION           20    //low goal
 #define MID_GOAL_POSITION      -915    //mid goal
 
 
@@ -175,6 +179,11 @@ void umbc::Robot::opcontrol() {
 
     enum class INTAKE_STATE {INTAKE_OFF, INTAKE_ON, INTAKE_REVERSE};
     INTAKE_STATE intakeState = INTAKE_STATE::INTAKE_OFF;
+    double time = 0;
+    double timmer_limit = INTAKE_SINGLE_OUT_TIMMER_DEFAULT;
+
+    bool timed_outake = false;
+    bool allow_timed_outake = false;
     
     enum class ARM_STATE {REST, MID_GOAL};  //implement HIGH_GOAL if the bot can reach it
     ARM_STATE arm_state = ARM_STATE::REST;
@@ -187,6 +196,7 @@ void umbc::Robot::opcontrol() {
     enum class SCORE_SPEED{SLOW, DEFAULT, FAST};
     int score_speed_selector = 1;
 
+    
     while(1) {
         //left joystick (target movement)
         double left_x = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_X);
@@ -255,7 +265,16 @@ void umbc::Robot::opcontrol() {
                 intakeState = INTAKE_STATE::INTAKE_ON;
             }
         }
-        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2)){ //toggle intake reverse
+        
+        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_X)){
+            time = pros::millis(); //reset time so measure with
+            allow_timed_outake = true; //latch to prevent outake from working on start up
+        }
+        timed_outake = ((pros::millis() - time) < timmer_limit);
+        
+
+        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2))
+        {
             if(intakeState == INTAKE_STATE::INTAKE_REVERSE){
                 intakeState = INTAKE_STATE::INTAKE_OFF;
             }
@@ -349,14 +368,21 @@ void umbc::Robot::opcontrol() {
                 if(score_speed == SCORE_SPEED::SLOW){
                     intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
                     intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
+
+                    timmer_limit = INTAKE_SINGLE_OUT_TIMMER_SLOW;
                 }
                 else if(score_speed == SCORE_SPEED::DEFAULT){
                     intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
                     intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
+
+                    timmer_limit = INTAKE_SINGLE_OUT_TIMMER_DEFAULT;
                 }
                 else{
                     intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
                     intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+
+                    timmer_limit = INTAKE_SINGLE_OUT_TIMMER_FAST;
+
                 }
                 break;
         }
@@ -381,6 +407,13 @@ void umbc::Robot::opcontrol() {
             leftArmPID.reset();
             rightArmPID.reset();
         }
+        
+        if(timed_outake && allow_timed_outake){ //drives intake when timmer is active (only works here for some reason DON'T MOVE)
+            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
+            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
+        }
+
+        pros::lcd::set_text(2, std::to_string(timed_outake));
         
 
         arm_motor_left.move_voltage(leftArmVolt);
