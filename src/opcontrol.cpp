@@ -140,7 +140,7 @@ void umbc::Robot::opcontrol()
 
     // brakes and gearing
     // DRIVE
-    driveGroup.set_brake_modes(E_MOTOR_BRAKE_BRAKE);
+    driveGroup.set_brake_mode(E_MOTOR_BRAKE_BRAKE);
     driveGroup.set_gearing(E_MOTOR_GEAR_GREEN);
 
     // INTAKE
@@ -415,64 +415,85 @@ void umbc::Robot::opcontrol()
 
         armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput() * 0.35);
 
-        arm_controller.step((armGroup.get_positions()[0] + armGroup.get_positions()[1]) / 2);
+        arm_controller.step((armGroup.get_position(0) + armGroup.get_position(1)));
 
         // required loop delay (do not edit)
         pros::Task::delay(this->opcontrol_delay_ms);
     }
 }
 
-// Ignore my code formatting, vscode thinks ts is cute vro </3
+//------------------------------------------------------------------------------------------------
+
+// Assuming these are defined in your global scope or main.h
+// extern pros::MotorGroup driveGroup;
+
+void drive_doctor(std::ostream &writestream)
+{
+    // Get timestamp (Number of seconds since Pros Initialized)
+    uint32_t now = pros::millis();
+
+    // 1. Temperature Check
+    // In PROS 4, we iterate through the group or use get_temperatures()
+    std::vector<double> temps = driveGroup.get_temperature_all();
+    for (size_t i = 0; i < temps.size(); ++i)
+    {
+        if (temps[i] > 55.0)
+        { // 55C is kinda hot idk
+            writestream << "[" << now << "] WARNING: Motor on Index " << i
+                        << " is hot: " << temps[i] << "C" << std::endl;
+        }
+    }
+
+    // 2. Current Check
+    std::vector<int32_t> currents = driveGroup.get_current_draw_all();
+    for (size_t i = 0; i < currents.size(); ++i)
+    {
+        if (currents[i] > 2000)
+        { // Example: > 2000mA (2A) draw
+            writestream << "[" << now << "] ALERT: Motor " << i
+                        << " over-current: " << currents[i] << "mA" << std::endl;
+        }
+    }
+
+    // 3. Efficiency Check (Custom calculation or standard telemetry)
+    // but we can log power/velocity ratios or use get_efficiency().
+    std::vector<double> efficiencies = driveGroup.get_efficiency_all();
+    for (size_t i = 0; i < efficiencies.size(); ++i)
+    {
+        writestream << "[" << now << "] Motor " << i << " Efficiency: " << efficiencies[i] << "%" << std::endl;
+    }
+}
+
 void doctor()
 {
-    // This is just a telemetry system to dump info on an sd card
-    // NOTE: THIS FUNCTION SHOULD BE MULTITHREADED
-    // This code is written by your GOAT Joshua Davey (no need for applause)
+    // Open the file in Append mode so we don't wipe previous runs
+    std::ofstream telemetry_file("/usd/doctors_diagnosis.txt", std::ios::app);
 
-    // File write Stream
-    ofstream telemetry_file("/usd/doctors_diagnosis.txt"); // will move this to calling function so I can open and close once there
-    drive_doctor(telemetry_file);
-    intake_doctor();
-    arm_doctor();
+    // If the file isn't open
+    if (!telemetry_file.is_open())
+    {
+        pros::lcd::set_text(1, "SD Card Error: File not opened");
+        return;
+    }
+
+    telemetry_file << "--- DOCTOR DAVEY'S SESSION STARTED ---" << std::endl;
+
+    while (true)
+    {
+        drive_doctor(telemetry_file);
+        // intake_doctor(telemetry_file);
+        // arm_doctor(telemetry_file);
+
+        // ESSENTIAL: Flush data to the SD card so it saves if the robot is turned off
+        telemetry_file.flush();
+
+        // Delay to prevent CPU hogging and SD card wear
+        pros::delay(500);
+    }
 }
 
-void drive_doctor(ofstream &writestream)
+// How to start it in initialize() or autonomous()
+void start_diagnostics()
 {
-
-    // Get function timestamp so we actually know when issues arise
-    time_t timestamp;
-    time(&timestamp);
-
-    // Temperature Check
-    // std::vector<std::int32_t> driveTempCheck = driveGroup.is_over_temp_all(); // returns 1 if temperature is over limit else 0
-    string motorName;
-    for (unsigned int i = 0; i < driveGroup.size(); ++i)
-    {
-        motorName = XSTR(driveGroup[i]);
-        if (driveGroup[i].is_over_temp())
-        {
-            std::cout << "Motor" << "is over current limit \n";
-        }
-    }
-
-    // Current Check
-    std::vector<std::int32_t> driveCurrentCheck = driveGroup.is_over_current_all(); // returns 1 if current is over limit else 0
-    for (unsigned int i = 0; i < driveCurrentCheck.size(); ++i)
-    {
-        if (driveCurrentCheck[i])
-        {
-            std::cout << "Motor {MOTOR_HERE} is over current limit" << "\n"; // Adjust for file append
-        }
-    }
-
-    // Efficiency Check
-    std::vector<double> driveEfficiencies = driveGroup.get_efficiency_all(); // 0% means motor is drawing power and not moving, while 100% means motor is moving without drawing power
-    for (unsigned int i = 0; i < driveEfficiencies.size(); ++i)
-    {
-        std::cout << "Motor {MOTOR_HERE}'s has an efficiency of 0.0(placeholder duh)";
-    }
+    pros::Task telemetry_task(doctor);
 }
-
-void intake_doctor() {}
-
-void arm_doctor() {}
