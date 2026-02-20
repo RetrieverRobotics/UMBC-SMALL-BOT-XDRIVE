@@ -103,9 +103,10 @@ class PIDController {
 //ports for intake motors (blue)
 #define INTAKE_MOTOR_LEFT                   12
 #define INTAKE_MOTOR_RIGHT                  -15
-#define INTAKE_SINGLE_OUT_TIMMER_DEFAULT    750
-#define INTAKE_SINGLE_OUT_TIMMER_SLOW       1000
-#define INTAKE_SINGLE_OUT_TIMMER_FAST       500
+
+#define INTAKE_SINGLE_OUT_TIMMER_DEFAULT    500
+#define INTAKE_SINGLE_OUT_TIMMER_SLOW       750
+#define INTAKE_SINGLE_OUT_TIMMER_FAST       320
 
 #define REST_POSITION           20    //low goal
 #define MID_GOAL_POSITION      -915    //mid goal
@@ -181,9 +182,12 @@ void umbc::Robot::opcontrol() {
     INTAKE_STATE intakeState = INTAKE_STATE::INTAKE_OFF;
     double time = 0;
     double timmer_limit = INTAKE_SINGLE_OUT_TIMMER_DEFAULT;
+    double intake_position_hold_r = 0;
+    double intake_position_hold_l = 0;
 
     bool timed_outake = false;
     bool allow_timed_outake = false;
+    bool break_timmer = false;
     
     enum class ARM_STATE {REST, MID_GOAL};  //implement HIGH_GOAL if the bot can reach it
     ARM_STATE arm_state = ARM_STATE::REST;
@@ -271,6 +275,7 @@ void umbc::Robot::opcontrol() {
             allow_timed_outake = true; //latch to prevent outake from working on start up
         }
         timed_outake = ((pros::millis() - time) < timmer_limit);
+        break_timmer = ((pros::millis() - time) < timmer_limit + 50);
         
 
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2))
@@ -354,6 +359,22 @@ void umbc::Robot::opcontrol() {
                 break;
         }
 
+        switch (score_speed) //timmed outake time limit management
+        {
+        case SCORE_SPEED::DEFAULT:
+            timmer_limit = INTAKE_SINGLE_OUT_TIMMER_DEFAULT;
+            break;
+        case SCORE_SPEED::FAST:
+            timmer_limit = INTAKE_SINGLE_OUT_TIMMER_FAST;
+            break;
+        case SCORE_SPEED::SLOW:
+            timmer_limit = INTAKE_SINGLE_OUT_TIMMER_SLOW;
+            break;
+        
+        default:
+            timmer_limit = INTAKE_SINGLE_OUT_TIMMER_DEFAULT;
+            break;
+        }
         //intake motors
         switch(intakeState){
             case INTAKE_STATE::INTAKE_OFF:
@@ -368,21 +389,14 @@ void umbc::Robot::opcontrol() {
                 if(score_speed == SCORE_SPEED::SLOW){
                     intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
                     intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
-
-                    timmer_limit = INTAKE_SINGLE_OUT_TIMMER_SLOW;
                 }
                 else if(score_speed == SCORE_SPEED::DEFAULT){
                     intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
                     intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
-
-                    timmer_limit = INTAKE_SINGLE_OUT_TIMMER_DEFAULT;
                 }
                 else{
                     intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
                     intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
-
-                    timmer_limit = INTAKE_SINGLE_OUT_TIMMER_FAST;
-
                 }
                 break;
         }
@@ -409,11 +423,32 @@ void umbc::Robot::opcontrol() {
         }
         
         if(timed_outake && allow_timed_outake){ //drives intake when timmer is active (only works here for some reason DON'T MOVE)
-            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
-            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
+            intake_position_hold_l = intake_motor_left.get_position();
+            intake_position_hold_r = intake_motor_right.get_position();
+            switch(score_speed){
+                case SCORE_SPEED::FAST:
+                    intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+                    intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+                break;
+
+                case SCORE_SPEED::DEFAULT:
+                    intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
+                    intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
+                break;
+
+                case SCORE_SPEED::SLOW:
+                    intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
+                    intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
+                break;
+                
+            }
+        }
+        if(break_timmer && allow_timed_outake && !timed_outake){
+            intake_motor_left.move_absolute(intake_position_hold_l, 100);
+            intake_motor_right.move_absolute(intake_position_hold_r, 100);
         }
 
-        pros::lcd::set_text(2, std::to_string(timed_outake));
+        pros::lcd::set_text(2, std::to_string(timmer_limit));
         
 
         arm_motor_left.move_voltage(leftArmVolt);
