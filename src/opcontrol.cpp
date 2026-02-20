@@ -36,6 +36,43 @@ using namespace std;
 #define TARGET_ERROR                    10
 #define dt                              10
  
+/*EXPERIMENTAL INTAKE MOTOR CONTROLLER TO READJUST MOTOR SPEED IN CASE OF STALLING*/
+class IntakeMotorController{
+    private:
+        vector<double> motor_position_history = {};
+        MotorGroup *intake_group;
+
+        double current_threshold = 0;
+        double min_position_change = 0;
+
+        bool is_intake_stalling(){
+            //motor is stalling if the differnce between the most recent position and last position is below a certain number
+            if(((motor_position_history[motor_position_history.size()-2] - motor_position_history[motor_position_history.size()-1]) < min_position_change)
+            && (((intake_group->get_current_draws()[0] + intake_group->get_current_draws()[1])/2) > current_threshold)){
+                return true;
+            }
+            return false;
+        }
+        
+        void getAdjustedOutputVoltage(double &motor_output_l, double &motor_output_r){
+            //not mathematically sound, fix this later
+            motor_output_l = MOTOR_BLUE_GEAR_MULTIPLIER * (((intake_group->get_current_draws()[0] + intake_group->get_current_draws()[1])/2) - current_threshold);
+            motor_output_r = MOTOR_BLUE_GEAR_MULTIPLIER * (((intake_group->get_current_draws()[0] + intake_group->get_current_draws()[1])/2) - current_threshold);
+        }
+    
+    public:
+        IntakeMotorController(double currentThreshold, double minPositionChange){
+            current_threshold = current_threshold;
+            min_position_change = minPositionChange;
+        }
+
+        void updateIntakeController(MotorGroup &intakegroup){
+            intake_group = &intakegroup;
+            motor_position_history.push_back((intake_group->get_positions()[0]+intake_group->get_positions()[1])/2);
+        }
+};
+
+
 class PIDController {
     private:
         double kp;
