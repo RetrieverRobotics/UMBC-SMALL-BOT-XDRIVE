@@ -64,10 +64,15 @@ using namespace std;
 #define KI 0
 #define KBIAS 0
 
+// These are to stringify macro names
+#define STR(x) #x
+#define XSTR(x) STR(x)
+
 // initialize motors
 std::vector<int8_t> drive_motors{LEFT_MOTOR_FRONT, LEFT_MOTOR_BACK, RIGHT_MOTOR_FRONT, RIGHT_MOTOR_BACK};
 std::vector<int8_t> intake_motors{INTAKE_MOTOR_LEFT, INTAKE_MOTOR_RIGHT};
 std::vector<int8_t> arm_motors{ARM_MOTOR_LEFT, ARM_MOTOR_RIGHT};
+
 pros::MotorGroup driveGroup(drive_motors);
 pros::MotorGroup intakeGroup(intake_motors);
 pros::MotorGroup armGroup(arm_motors);
@@ -316,18 +321,20 @@ void drive_doctor(ofstream &writestream)
     time(&timestamp);
 
     // Temperature Check
-    std::vector<std::int32_t> driveTempCheck = driveGroup.is_over_temp_all(); // returns 1 if temperature is over limit else 0
-    for (int i = 0; i < driveTempCheck.size(); ++i)
+    // std::vector<std::int32_t> driveTempCheck = driveGroup.is_over_temp_all(); // returns 1 if temperature is over limit else 0
+    string motorName;
+    for (unsigned int i = 0; i < driveGroup.size(); ++i)
     {
-        if (driveTempCheck[i])
+        motorName = XSTR(driveGroup[i]);
+        if (driveGroup[i].is_over_temp())
         {
-            std::cout << "Motor {MOTOR_HERE} is over temperature limit" << "\n"; // Adjust for file append
+            std::cout << "Motor" << "is over current limit \n";
         }
     }
 
     // Current Check
     std::vector<std::int32_t> driveCurrentCheck = driveGroup.is_over_current_all(); // returns 1 if current is over limit else 0
-    for (int i = 0; i < driveCurrentCheck.size(); ++i)
+    for (unsigned int i = 0; i < driveCurrentCheck.size(); ++i)
     {
         if (driveCurrentCheck[i])
         {
@@ -337,7 +344,7 @@ void drive_doctor(ofstream &writestream)
 
     // Efficiency Check
     std::vector<double> driveEfficiencies = driveGroup.get_efficiency_all(); // 0% means motor is drawing power and not moving, while 100% means motor is moving without drawing power
-    for (int i = 0; i < driveEfficiencies.size(); ++i)
+    for (unsigned int i = 0; i < driveEfficiencies.size(); ++i)
     {
         std::cout << "Motor {MOTOR_HERE}'s has an efficiency of 0.0(placeholder duh)";
     }
