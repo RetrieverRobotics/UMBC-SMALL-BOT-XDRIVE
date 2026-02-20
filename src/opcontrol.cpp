@@ -104,9 +104,7 @@ class PIDController {
 #define INTAKE_MOTOR_LEFT                   12
 #define INTAKE_MOTOR_RIGHT                  -15
 
-#define INTAKE_SINGLE_OUT_TIMMER_DEFAULT    500
-#define INTAKE_SINGLE_OUT_TIMMER_SLOW       750
-#define INTAKE_SINGLE_OUT_TIMMER_FAST       320
+#define INTAKE_SINGLE_OUT_TIMMER       320
 
 #define REST_POSITION           20    //low goal
 #define MID_GOAL_POSITION      -915    //mid goal
@@ -181,7 +179,7 @@ void umbc::Robot::opcontrol() {
     enum class INTAKE_STATE {INTAKE_OFF, INTAKE_ON, INTAKE_REVERSE};
     INTAKE_STATE intakeState = INTAKE_STATE::INTAKE_OFF;
     double time = 0;
-    double timmer_limit = INTAKE_SINGLE_OUT_TIMMER_DEFAULT;
+    double timmer_limit = INTAKE_SINGLE_OUT_TIMMER;
     double intake_position_hold_r = 0;
     double intake_position_hold_l = 0;
 
@@ -359,22 +357,6 @@ void umbc::Robot::opcontrol() {
                 break;
         }
 
-        switch (score_speed) //timmed outake time limit management
-        {
-        case SCORE_SPEED::DEFAULT:
-            timmer_limit = INTAKE_SINGLE_OUT_TIMMER_DEFAULT;
-            break;
-        case SCORE_SPEED::FAST:
-            timmer_limit = INTAKE_SINGLE_OUT_TIMMER_FAST;
-            break;
-        case SCORE_SPEED::SLOW:
-            timmer_limit = INTAKE_SINGLE_OUT_TIMMER_SLOW;
-            break;
-        
-        default:
-            timmer_limit = INTAKE_SINGLE_OUT_TIMMER_DEFAULT;
-            break;
-        }
         //intake motors
         switch(intakeState){
             case INTAKE_STATE::INTAKE_OFF:
@@ -425,25 +407,10 @@ void umbc::Robot::opcontrol() {
         if(timed_outake && allow_timed_outake){ //drives intake when timmer is active (only works here for some reason DON'T MOVE)
             intake_position_hold_l = intake_motor_left.get_position();
             intake_position_hold_r = intake_motor_right.get_position();
-            switch(score_speed){
-                case SCORE_SPEED::FAST:
-                    intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
-                    intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
-                break;
-
-                case SCORE_SPEED::DEFAULT:
-                    intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
-                    intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
-                break;
-
-                case SCORE_SPEED::SLOW:
-                    intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
-                    intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
-                break;
-                
-            }
+            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
         }
-        if(break_timmer && allow_timed_outake && !timed_outake){
+        if(break_timmer && allow_timed_outake && !timed_outake){ //locks motors into last recorded position to shoot ball at the end
             intake_motor_left.move_absolute(intake_position_hold_l, 100);
             intake_motor_right.move_absolute(intake_position_hold_r, 100);
         }
