@@ -463,14 +463,6 @@ void umbc::Robot::opcontrol() {
 
         pros::lcd::set_text(2, std::to_string(timmer_limit));
         
-
-        arm_motor_left.move_voltage(leftArmVolt);
-        arm_motor_right.move_voltage(rightArmVolt);
-
-        //armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput()*0.35);
-
-        //arm_controller.step((armGroup.get_positions()[0] + armGroup.get_positions()[1])/2);
-        
         // required loop delay (do not edit)
         pros::Task::delay(this->opcontrol_delay_ms);
     }
