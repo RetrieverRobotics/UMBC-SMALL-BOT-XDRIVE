@@ -102,7 +102,7 @@ class PIDController {
 
 //ports for intake motors (blue)
 #define INTAKE_MOTOR_LEFT                   12
-#define INTAKE_MOTOR_RIGHT                  -15
+#define INTAKE_MOTOR_RIGHT                  -14
 
 #define INTAKE_SINGLE_OUT_TIMMER       320
 
