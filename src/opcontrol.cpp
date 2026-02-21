@@ -105,7 +105,7 @@ class PIDController {
 #define INTAKE_MOTOR_RIGHT     -15
 #define REST_POSITION          -20       //low goal
 #define MID_GOAL_POSITION      -850     //mid goal
-
+#define INTAKE_SINGLE_OUT_TIMMER       320
 
 #define KP                   0.1
 #define KD                   0.65
@@ -173,6 +173,14 @@ void umbc::Robot::opcontrol() {
         INTAKE_REVERSE
     };
     INTAKE_STATE intakeState = INTAKE_STATE::INTAKE_OFF;
+    double time = 0;
+    double timmer_limit = INTAKE_SINGLE_OUT_TIMMER;
+    double intake_position_hold_r = 0;
+    double intake_position_hold_l = 0;
+
+    bool timed_outake = false;
+    bool allow_timed_outake = false;
+    bool break_timmer = false;
     
     enum class ARM_STATE{ //implement HIGH_GOAL if the bot can reach it
         REST,
@@ -193,6 +201,7 @@ void umbc::Robot::opcontrol() {
     enum class SCORE_SPEED{SLOW, DEFAULT, FAST};
     int score_speed_selector = 1;
 
+    
     while(1) {
         //left joystick (target movement)
         double left_x = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_X);
@@ -261,7 +270,17 @@ void umbc::Robot::opcontrol() {
                 intakeState = INTAKE_STATE::INTAKE_ON;
             }
         }
-        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2)){ //toggle intake reverse
+        
+        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_X)){
+            time = pros::millis(); //reset time so measure with
+            allow_timed_outake = true; //latch to prevent outake from working on start up
+        }
+        timed_outake = ((pros::millis() - time) < timmer_limit);
+        break_timmer = ((pros::millis() - time) < timmer_limit + 50);
+        
+
+        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2))
+        {
             if(intakeState == INTAKE_STATE::INTAKE_REVERSE){
                 intakeState = INTAKE_STATE::INTAKE_OFF;
             }
@@ -427,6 +446,23 @@ void umbc::Robot::opcontrol() {
             arm_motor_left.move_voltage(leftArmVolt);
             arm_motor_right.move_voltage(rightArmVolt);
         }
+
+        if(timed_outake && allow_timed_outake){ //drives intake when timmer is active (only works here for some reason DON'T MOVE)
+            intake_position_hold_l = intake_motor_left.get_position();
+            intake_position_hold_r = intake_motor_right.get_position();
+            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+        }
+        if(break_timmer && allow_timed_outake && !timed_outake){ //locks motors into last recorded position to shoot ball at the end
+            intake_motor_left.move_absolute(intake_position_hold_l, 100);
+            intake_motor_right.move_absolute(intake_position_hold_r, 100);
+        }
+
+        pros::lcd::set_text(2, std::to_string(timmer_limit));
+
+        //armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput()*0.35);
+
+        //arm_controller.step((armGroup.get_positions()[0] + armGroup.get_positions()[1])/2);
         
         // required loop delay (do not edit)
         pros::Task::delay(this->opcontrol_delay_ms);
