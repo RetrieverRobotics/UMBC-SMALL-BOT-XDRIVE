@@ -21,7 +21,6 @@
 #include <vector>
 #include <cmath>
 #include <fstream>
-#include <ctime>
 
 using namespace pros;
 using namespace umbc;
@@ -40,73 +39,29 @@ using namespace std;
 
 // DOUBLE CHECK MOTORS!!!!!
 
-// ports for left drive motors (green)
+// ports for left motors(blue)
 #define LEFT_MOTOR_FRONT 2
 #define LEFT_MOTOR_BACK 11
 
-// ports for right drive motors (green)
-#define RIGHT_MOTOR_FRONT -7
+// ports for right motors(blue)
+#define RIGHT_MOTOR_FRONT -6
 #define RIGHT_MOTOR_BACK -20
 
-// ports for lift motors (red)
+// ports for lift motors
 #define ARM_MOTOR_RIGHT -21
 #define ARM_MOTOR_LEFT 5
 
-// ports for intake motors (blue)
+// ports for intake motors
 #define INTAKE_MOTOR_LEFT 12
-#define INTAKE_MOTOR_RIGHT -15
-#define REST_POSITION -65      // low goal
+#define INTAKE_MOTOR_RIGHT -18
+
+#define REST_POSITION -100     // low goal
 #define MID_GOAL_POSITION -850 // mid goal
-
-/*
-class PIDController {
-    private:
-        double kp;
-        double ki;
-        double kd;
-        double kBias;
-
-        double error = 0;
-        double prev_error = 0;
-        double changeError = 0;
-        double totalError = 0;
-
-    public:
-        PIDController(double p, double i, double d, double bias){
-            kp = p;
-            ki = i;
-            kd = d;
-            kBias = bias;
-        }
-
-        double calculatePID(double target, double current){
-            error = target - current;
-            changeError = error - prev_error;
-            totalError += error;
-            prev_error = error;
-
-            //capping totalError to prevent possible overshooting
-            if(totalError > 500) totalError = 500;
-            if(totalError < -500) totalError = -500;
-
-            double pidCalc = kp * error + ki * totalError + kd * changeError + kBias;
-            double pidCalc_scaled = pidCalc * 12000 / 100;
-            if(pidCalc_scaled > 12000) pidCalc_scaled = 12000;
-            if(pidCalc_scaled < -12000) pidCalc_scaled = -12000;
-
-            return pidCalc_scaled;
-        }
-};
-*/
 
 #define KP 3
 #define KD 0
 #define KI 0
 #define KBIAS 0
-
-// These are to stringify macro names
-#define STR(x) #x
-#define XSTR(x) STR(x)
 
 // initialize motors
 std::vector<int8_t> drive_motors{LEFT_MOTOR_FRONT, LEFT_MOTOR_BACK, RIGHT_MOTOR_FRONT, RIGHT_MOTOR_BACK};
@@ -125,18 +80,9 @@ void umbc::Robot::opcontrol()
     umbc::Controller *controller_partner = this->controller_partner;
 
     // initialize PID controller for arm
-
     okapi::ConfigurableTimeUtilFactory global_time_factory;
     okapi::TimeUtil global_time = global_time_factory.create();
     okapi::IterativePosPIDController arm_controller(KP, KI, KD, KBIAS, global_time);
-
-    // initialize motors
-    std::vector<int8_t> drive_motors{LEFT_MOTOR_FRONT, LEFT_MOTOR_BACK, RIGHT_MOTOR_FRONT, RIGHT_MOTOR_BACK};
-    std::vector<int8_t> intake_motors{INTAKE_MOTOR_LEFT, INTAKE_MOTOR_RIGHT};
-    std::vector<int8_t> arm_motors{ARM_MOTOR_RIGHT, ARM_MOTOR_LEFT};
-    pros::MotorGroup driveGroup(drive_motors);
-    pros::MotorGroup intakeGroup(intake_motors);
-    pros::MotorGroup armGroup(arm_motors);
 
     // brakes and gearing
     // DRIVE
@@ -162,10 +108,6 @@ void umbc::Robot::opcontrol()
     pros::Motor intake_motor_left(INTAKE_MOTOR_LEFT);
     pros::Motor intake_motor_right(INTAKE_MOTOR_RIGHT);
 
-    // arm motors
-    pros::Motor arm_motor_right(ARM_MOTOR_RIGHT);
-    pros::Motor arm_motor_left(ARM_MOTOR_LEFT);
-
     // motor states
     bool slowSpeedButton = false;
 
@@ -182,25 +124,8 @@ void umbc::Robot::opcontrol()
         REST,
         MID_GOAL
     }; // implement HIGH_GOAL if the bot can reach it
-    ARM_STATE cur_arm_state = ARM_STATE::REST;
-    int arm_state_selector = 0;
-
-    enum class DRIVE_STATE
-    {
-        SLOW_DRIVE,
-        DEFAULT_DRIVE,
-        FAST_DRIVE
-    };
-    DRIVE_STATE driveState = DRIVE_STATE::DEFAULT_DRIVE;
-    int speed_state_selector = 1;
-
-    enum class SCORE_SPEED
-    {
-        SLOW,
-        DEFAULT,
-        FAST
-    };
-    int score_speed_selector = 1;
+    ARM_STATE cur_state = ARM_STATE::REST;
+    int state_selector = 0;
 
     while (1)
     {
@@ -217,7 +142,7 @@ void umbc::Robot::opcontrol()
             left_y = 0;
         }
         left_x = pow(left_x, 3) / (127 * 127 * 127); // cubing for finer control
-        left_y = pow(left_y, 3) / (127 * 127 * 127);
+        left_y = pow(left_y, 3) / (127 * 127 * 127); // cubing for finer control
 
         // right joystick (rotation)
         double right_x = controller_master->get_analog(E_CONTROLLER_ANALOG_RIGHT_X);
@@ -237,6 +162,8 @@ void umbc::Robot::opcontrol()
         if (radius != 0)
         {
             speed = max({fabs(power_back_left), fabs(power_back_right), fabs(power_front_left), fabs(power_front_right)}) / radius;
+            // speed2 = max(fabs(power_front_left), fabs(power_front_right));
+            // speed = max(speed1, speed2) / radius;
         }
 
         double vel_fl = 0;
@@ -254,25 +181,15 @@ void umbc::Robot::opcontrol()
         // SPEED CONTROL
         if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_UP))
         { // toggle slow speed
-            speed_state_selector++;
+            slowSpeedButton = false;
         }
         if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_DOWN))
         { // toggle slow speed
-            speed_state_selector--;
+            slowSpeedButton = true;
         }
-
-        if (speed_state_selector > 2)
-        {
-            speed_state_selector = 2;
-        }
-        else if (speed_state_selector < 0)
-        {
-            speed_state_selector = 0;
-        }
-        driveState = (DRIVE_STATE)speed_state_selector;
 
         // INTAKE CONTROLS
-        if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R1))
+        if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2))
         { // toggle intake on
             if (intakeState == INTAKE_STATE::INTAKE_ON)
             {
@@ -283,7 +200,7 @@ void umbc::Robot::opcontrol()
                 intakeState = INTAKE_STATE::INTAKE_ON;
             }
         }
-        if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2))
+        if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R1))
         { // toggle intake reverse
             if (intakeState == INTAKE_STATE::INTAKE_REVERSE)
             {
@@ -295,50 +212,28 @@ void umbc::Robot::opcontrol()
             }
         }
 
-        if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_RIGHT))
-        { // changes score speed, mainly for skills
-            score_speed_selector++;
-        }
-        if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_LEFT))
-        { // changes score speed, mainly for skills
-            score_speed_selector--;
-        }
-
-        if (score_speed_selector > 2)
-        {
-            score_speed_selector = 2;
-        }
-        else if (score_speed_selector < 0)
-        {
-            score_speed_selector = 0;
-        }
-
-        SCORE_SPEED score_speed = (SCORE_SPEED)score_speed_selector;
-
         // LIFT CONTROLS
-        // for overide, add toggle button, then just switch code for L1 and L2
-
         if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_L1))
         { // move arm up
-            arm_state_selector++;
+            state_selector++;
         }
 
         if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_L2))
         { // move arm down
-            arm_state_selector--;
+            state_selector--;
         }
 
-        if (arm_state_selector > 1)
+        if (state_selector > 1)
         {
-            arm_state_selector = 1;
+            state_selector = 1;
         }
-        else if (arm_state_selector < 0)
+        else if (state_selector < 0)
         {
-            arm_state_selector = 0;
+            state_selector = 0;
         }
-        cur_arm_state = (ARM_STATE)arm_state_selector;
+        cur_state = (ARM_STATE)state_selector;
 
-        switch (cur_arm_state)
+        switch (cur_state)
         {
         case ARM_STATE::REST:
             arm_controller.setTarget(REST_POSITION);
@@ -351,22 +246,12 @@ void umbc::Robot::opcontrol()
 
         // MOVING MOTORS
         // slow speed if toggled on
-        switch (driveState)
+        if (slowSpeedButton)
         {
-        case DRIVE_STATE::SLOW_DRIVE:
             vel_fl *= 0.5;
             vel_fr *= 0.5;
             vel_bl *= 0.5;
             vel_br *= 0.5;
-            break;
-        case DRIVE_STATE::DEFAULT_DRIVE:
-            break;
-        case DRIVE_STATE::FAST_DRIVE:
-            vel_fl *= 1.25;
-            vel_fr *= 1.25;
-            vel_bl *= 1.25;
-            vel_br *= 1.25;
-            break;
         }
 
         // intake motors
@@ -377,25 +262,12 @@ void umbc::Robot::opcontrol()
             intake_motor_right.move_velocity(0);
             break;
         case INTAKE_STATE::INTAKE_ON:
-            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * -0.85);
-            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * -0.85);
+            intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+            intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
             break;
         case INTAKE_STATE::INTAKE_REVERSE:
-            if (score_speed == SCORE_SPEED::SLOW)
-            {
-                intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
-                intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.1);
-            }
-            else if (score_speed == SCORE_SPEED::DEFAULT)
-            {
-                intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
-                intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.2);
-            }
-            else
-            {
-                intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
-                intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
-            }
+            intake_motor_left.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
+            intake_motor_right.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
             break;
         }
 
@@ -406,18 +278,16 @@ void umbc::Robot::opcontrol()
         right_motor_back.move_velocity((vel_br - right_x) * MOTOR_GREEN_GEAR_MULTIPLIER * 0.7);
 
         // lift motors
-
-        // double leftArmVolt = leftArmPID.calculatePID(armTarget, arm_motor_left.get_position() - leftArmMotorZero);
-        // double rightArmVolt = rightArmPID.calculatePID(armTarget, arm_motor_right.get_position() - rightArmMotorZero);
-
-        // arm_motor_left.move_voltage(leftArmVolt);
-        // arm_motor_right.move_voltage(rightArmVolt);
-
-        armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput() * 0.35);
-
-        arm_controller.step((armGroup.get_position(0) + armGroup.get_position(1)));
-
-        doctor(); // TESTING
+        // error system to prevent arm motors from moving while within a close enough range of the target (UNTESTED)
+        if (abs((arm_controller.getTarget() - ((armGroup.get_position(0) + armGroup.get_position(1)) / 2))) > TARGET_ERROR)
+        {
+            armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput() * 0.25); // DO NOT CHANGE THIS VALUE WITHOUT TESTING
+        }
+        else
+        {
+            armGroup.move_velocity(0);
+        }
+        arm_controller.step((armGroup.get_position(0) + armGroup.get_position(1)) / 2);
 
         // required loop delay (do not edit)
         pros::Task::delay(this->opcontrol_delay_ms);
