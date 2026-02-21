@@ -101,13 +101,15 @@ class PIDController {
 #define ARM_MOTOR_LEFT          5
 
 //ports for intake motors (blue)
-#define INTAKE_MOTOR_LEFT       12
-#define INTAKE_MOTOR_RIGHT     -15
-#define REST_POSITION          -20       //low goal
-#define MID_GOAL_POSITION      -850     //mid goal
+#define INTAKE_MOTOR_LEFT                   12
+#define INTAKE_MOTOR_RIGHT                  -15
+
 #define INTAKE_SINGLE_OUT_TIMMER       320
 
 #define RESET_BUTTON           1
+#define REST_POSITION           20    //low goal
+#define MID_GOAL_POSITION      -915    //mid goal
+
 
 #define KP                   0.1
 #define KD                   0.65
@@ -444,7 +446,7 @@ void umbc::Robot::opcontrol() {
             arm_motor_left.move_voltage(leftArmVolt);
             arm_motor_right.move_voltage(rightArmVolt);
         }
-
+        
         if(timed_outake && allow_timed_outake){ //drives intake when timmer is active (only works here for some reason DON'T MOVE)
             intake_position_hold_l = intake_motor_left.get_position();
             intake_position_hold_r = intake_motor_right.get_position();
@@ -457,10 +459,6 @@ void umbc::Robot::opcontrol() {
         }
 
         pros::lcd::set_text(2, std::to_string(timmer_limit));
-
-        //armGroup.move_absolute(arm_controller.getTarget(), -MOTOR_RED_GEAR_MULTIPLIER * arm_controller.getOutput()*0.35);
-
-        //arm_controller.step((armGroup.get_positions()[0] + armGroup.get_positions()[1])/2);
         
         // required loop delay (do not edit)
         pros::Task::delay(this->opcontrol_delay_ms);
