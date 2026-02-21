@@ -107,6 +107,8 @@ class PIDController {
 #define MID_GOAL_POSITION      -850     //mid goal
 #define INTAKE_SINGLE_OUT_TIMMER       320
 
+#define RESET_BUTTON           1
+
 #define KP                   0.1
 #define KD                   0.65
 #define KI                   0.01
@@ -201,6 +203,8 @@ void umbc::Robot::opcontrol() {
     enum class SCORE_SPEED{SLOW, DEFAULT, FAST};
     int score_speed_selector = 1;
 
+    //Limit switch
+    ADIDigitalIn reset_button (RESET_BUTTON);
     
     while(1) {
         //left joystick (target movement)
@@ -313,19 +317,13 @@ void umbc::Robot::opcontrol() {
     
         //LIFT CONTROLS
         //override switch
-        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_A)){
-            if(arm_state == ARM_STATE::OVERRIDE){
-                arm_motor_left.tare_position();
-                arm_motor_right.tare_position();
-                leftArmMotorZero = arm_motor_left.get_position();
-                rightArmMotorZero = arm_motor_right.get_position();
-                arm_state_selector = (int)ARM_STATE::REST;
-                arm_state = ARM_STATE::REST;
-            }
-            else{
-                arm_state_selector = (int)ARM_STATE::OVERRIDE;
-                arm_state = ARM_STATE::OVERRIDE;
-            }
+        if(reset_button.get_new_press()){
+            arm_motor_left.tare_position();
+            arm_motor_right.tare_position();
+            leftArmMotorZero = arm_motor_left.get_position();
+            rightArmMotorZero = arm_motor_right.get_position();
+            arm_state_selector = (int)ARM_STATE::REST;
+            arm_state = ARM_STATE::REST;
         }
 
         if(arm_state != ARM_STATE::OVERRIDE){
