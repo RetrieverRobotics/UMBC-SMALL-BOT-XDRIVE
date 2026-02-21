@@ -417,6 +417,8 @@ void umbc::Robot::opcontrol()
 
         arm_controller.step((armGroup.get_position(0) + armGroup.get_position(1)));
 
+        doctor(); // TESTING
+
         // required loop delay (do not edit)
         pros::Task::delay(this->opcontrol_delay_ms);
     }
