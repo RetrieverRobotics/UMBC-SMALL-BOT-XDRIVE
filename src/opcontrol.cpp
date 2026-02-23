@@ -21,6 +21,26 @@
 #include <vector>
 #include <cmath>
 
+//LOAD BEARING COMMENT: do not delete this comment or entire code will break >:(
+
+/*
+    CURRENT BUTTON BINDINGS
+    left-analog stick & right-analog stick - controls drive train
+    up/down dpad - drive train speed selector
+    left/right dpad - score speed selector
+    
+    A - arm override toggle
+    B - not binded
+    X - single ball outake
+    Y - OSOF button (oh shit of fuck, panic button to reset all states... ethan's words)
+
+    L1 - Lift arm (both in overide and normal operation)
+    L2 - Lower arm (both in overide and normal operation)
+
+    R1 - toggle intake
+    R2 - toggle outake (speed based on current score speed state)
+*/
+
 using namespace pros;
 using namespace umbc;
 using namespace std;
@@ -36,42 +56,6 @@ using namespace std;
 #define TARGET_ERROR                    5
 #define dt                              10
  
-/*EXPERIMENTAL INTAKE MOTOR CONTROLLER TO READJUST MOTOR SPEED IN CASE OF STALLING*/
-class IntakeMotorController{
-    private:
-        vector<double> motor_position_history = {};
-        MotorGroup *intake_group;
-
-        double current_threshold = 0;
-        double min_position_change = 0;
-
-        bool is_intake_stalling(){
-            //motor is stalling if the differnce between the most recent position and last position is below a certain number
-            if(((motor_position_history[motor_position_history.size()-2] - motor_position_history[motor_position_history.size()-1]) < min_position_change)
-            && (((intake_group->get_current_draws()[0] + intake_group->get_current_draws()[1])/2) > current_threshold)){
-                return true;
-            }
-            return false;
-        }
-        
-        void getAdjustedOutputVoltage(double &motor_output_l, double &motor_output_r){
-            //not mathematically sound, fix this later
-            motor_output_l = MOTOR_BLUE_GEAR_MULTIPLIER * (((intake_group->get_current_draws()[0] + intake_group->get_current_draws()[1])/2) - current_threshold);
-            motor_output_r = MOTOR_BLUE_GEAR_MULTIPLIER * (((intake_group->get_current_draws()[0] + intake_group->get_current_draws()[1])/2) - current_threshold);
-        }
-    
-    public:
-        IntakeMotorController(double currentThreshold, double minPositionChange){
-            current_threshold = current_threshold;
-            min_position_change = minPositionChange;
-        }
-
-        void updateIntakeController(MotorGroup &intakegroup){
-            intake_group = &intakegroup;
-            motor_position_history.push_back((intake_group->get_positions()[0]+intake_group->get_positions()[1])/2);
-        }
-};
-
 
 class PIDController {
     private:
@@ -139,12 +123,12 @@ class PIDController {
 
 //ports for intake motors (blue)
 #define INTAKE_MOTOR_LEFT                   12
-#define INTAKE_MOTOR_RIGHT                  -15
+#define INTAKE_MOTOR_RIGHT                  -14
 
 #define INTAKE_SINGLE_OUT_TIMMER       320
 
-#define RESET_BUTTON           1
-#define REST_POSITION           20    //low goal
+#define RESET_BUTTON            1      //limit 
+#define REST_POSITION           20     //low goal
 #define MID_GOAL_POSITION      -915    //mid goal
 
 
@@ -187,7 +171,6 @@ void umbc::Robot::opcontrol() {
     armGroup.set_brake_modes(E_MOTOR_BRAKE_HOLD);
     armGroup.set_gearing(E_MOTOR_GEAR_RED);
 
-    
     //drive motors
     pros::Motor left_motor_front (LEFT_MOTOR_FRONT);
     pros::Motor left_motor_back (LEFT_MOTOR_BACK);
@@ -205,6 +188,17 @@ void umbc::Robot::opcontrol() {
     leftArmMotorZero = arm_motor_left.get_position();
     rightArmMotorZero = arm_motor_right.get_position();
 
+    //time-centered variables for intake/arm features
+    double time = 0;
+    double timmer_limit = INTAKE_SINGLE_OUT_TIMMER;
+    double intake_position_hold_r = 0;
+    double intake_position_hold_l = 0;
+
+    bool timed_outake = false;
+    bool allow_timed_outake = false;
+    bool break_timmer = false;
+    bool slow_lift = false;
+
     //motor states
     bool slowSpeedButton = false;
 
@@ -214,14 +208,6 @@ void umbc::Robot::opcontrol() {
         INTAKE_REVERSE
     };
     INTAKE_STATE intakeState = INTAKE_STATE::INTAKE_OFF;
-    double time = 0;
-    double timmer_limit = INTAKE_SINGLE_OUT_TIMMER;
-    double intake_position_hold_r = 0;
-    double intake_position_hold_l = 0;
-
-    bool timed_outake = false;
-    bool allow_timed_outake = false;
-    bool break_timmer = false;
     
     enum class ARM_STATE{ //implement HIGH_GOAL if the bot can reach it
         REST,
@@ -244,6 +230,7 @@ void umbc::Robot::opcontrol() {
 
     //Limit switch
     ADIDigitalIn reset_button (RESET_BUTTON);
+
     
     while(1) {
         //left joystick (target movement)
@@ -289,6 +276,13 @@ void umbc::Robot::opcontrol() {
             vel_br = power_back_right;
         }
         
+        //AUTOMATED UNLOAD SEQUENCE
+        slow_lift = pros::millis() < 2500;
+        if(slow_lift){
+            arm_motor_left.move_absolute(-300, -15);
+            arm_motor_right.move_absolute(-300, -15);
+        }
+
         //SPEED CONTROL
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_UP)){ //toggle slow speed
             speed_state_selector++;
@@ -320,7 +314,7 @@ void umbc::Robot::opcontrol() {
         }
         timed_outake = ((pros::millis() - time) < timmer_limit);
         break_timmer = ((pros::millis() - time) < timmer_limit + 50);
-        
+         
 
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2))
         {
@@ -355,6 +349,7 @@ void umbc::Robot::opcontrol() {
         }
     
         //LIFT CONTROLS
+        
         //override switch
         if(reset_button.get_new_press()){
             arm_motor_left.tare_position();
@@ -363,6 +358,14 @@ void umbc::Robot::opcontrol() {
             rightArmMotorZero = arm_motor_right.get_position();
             arm_state_selector = (int)ARM_STATE::REST;
             arm_state = ARM_STATE::REST;
+        }
+
+        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_A)){
+            if(arm_state == ARM_STATE::OVERRIDE){
+                double tmp = 0; //dummy variable that does nothing
+            }else{
+                arm_state = ARM_STATE::OVERRIDE;
+            }
         }
 
         if(arm_state != ARM_STATE::OVERRIDE){
@@ -383,7 +386,6 @@ void umbc::Robot::opcontrol() {
             }
             arm_state = (ARM_STATE)arm_state_selector;
         }
-
             
         switch (arm_state){
             case ARM_STATE::REST:
@@ -396,8 +398,6 @@ void umbc::Robot::opcontrol() {
             default:
                 break;
         }
-        
-                
 
         //MOVING MOTORS
         //drive speed states
@@ -479,7 +479,7 @@ void umbc::Robot::opcontrol() {
                 arm_motor_right.move_velocity(0);
             }
         }
-        else{
+        else if(slow_lift == false){
             arm_motor_left.move_voltage(leftArmVolt);
             arm_motor_right.move_voltage(rightArmVolt);
         }
@@ -495,7 +495,9 @@ void umbc::Robot::opcontrol() {
             intake_motor_right.move_absolute(intake_position_hold_r, 100);
         }
 
-        pros::lcd::set_text(2, std::to_string(timmer_limit));
+        pros::lcd::set_text(2, std::to_string(slow_lift));
+        pros::lcd::set_text(3, std::to_string(arm_motor_left.get_position()));
+        pros::lcd::set_text(4, std::to_string(arm_motor_right.get_position()));
         
         // required loop delay (do not edit)
         pros::Task::delay(this->opcontrol_delay_ms);
