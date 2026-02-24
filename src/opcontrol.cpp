@@ -49,15 +49,27 @@ using namespace pros;
 using namespace umbc;
 using namespace std;
 
-#define MOTOR_RED_GEAR_MULTIPLIER 100
-#define MOTOR_GREEN_GEAR_MULTIPLIER 200
-#define MOTOR_BLUE_GEAR_MULTIPLIER 600
-#define MOTOR_REVERSE true
-#define REVERSED(port) -port
+// #define MOTOR_RED_GEAR_MULTIPLIER 100
+// #define MOTOR_GREEN_GEAR_MULTIPLIER 200
+// #define MOTOR_BLUE_GEAR_MULTIPLIER 600
+// #define MOTOR_REVERSE true
+// #define REVERSED(port) -port
 
-#define INTAKE_MOTOR_SPEED 100
-#define TARGET_ERROR 5
-#define dt 10
+// #define INTAKE_MOTOR_SPEED 100
+// #define TARGET_ERROR 5
+// #define dt 10
+
+// Converted MACROS to constexpr so they get evaluated at compile time instead
+// of run time and there will be added type safety
+constexpr int MOTOR_RED_GEAR_MULTIPLIER = 100;
+constexpr int MOTOR_GREEN_GEAR_MULTIPLIER = 200;
+constexpr int MOTOR_BLUE_GEAR_MULTIPLIER = 600;
+constexpr bool MOTOR_REVERSE = true;
+constexpr int REVERSED(int8_t port) { return -port; }
+
+constexpr int INTAKE_MOTOR_SPEED = 100;
+constexpr int TARGET_ERROR = 5;
+constexpr int dt = 10;
 
 void doctor();
 void start_diagnostics();
@@ -114,31 +126,32 @@ class PIDController {
 // DOUBLE CHECK MOTORS!!!!!
 
 // ports for left drive motors (green)
-#define LEFT_MOTOR_FRONT 2
-#define LEFT_MOTOR_BACK 11
+constexpr int LEFT_MOTOR_FRONT = 2;
+constexpr int LEFT_MOTOR_BACK = 11;
 
 // ports for right drive motors (green)
-#define RIGHT_MOTOR_FRONT -7
-#define RIGHT_MOTOR_BACK -20
+constexpr int RIGHT_MOTOR_FRONT = -7;
+constexpr int RIGHT_MOTOR_BACK = -20;
 
 // ports for lift motors (red)
-#define ARM_MOTOR_RIGHT -21
-#define ARM_MOTOR_LEFT 5
+constexpr int ARM_MOTOR_RIGHT = -21;
+constexpr int ARM_MOTOR_LEFT = 5;
 
 // ports for intake motors (blue)
-#define INTAKE_MOTOR_LEFT 12
-#define INTAKE_MOTOR_RIGHT -14
+constexpr int INTAKE_MOTOR_LEFT = 12;
+constexpr int INTAKE_MOTOR_RIGHT = -14;
 
-#define INTAKE_SINGLE_OUT_TIMMER 320
+constexpr int INTAKE_SINGLE_OUT_TIMMER = 320;
 
-#define RESET_BUTTON 1          // limit
-#define REST_POSITION 20        // low goal
-#define MID_GOAL_POSITION -915  // mid goal
+constexpr int RESET_BUTTON = 1;          // limit
+constexpr int REST_POSITION = 20;        // low goal
+constexpr int MID_GOAL_POSITION = -915;  // mid goal
 
-#define KP 0.1
-#define KD 0.65
-#define KI 0.01
-#define KBIAS -15  // for gravity
+constexpr double KP = 0.1;
+constexpr double KD = 0.65;
+constexpr double KI = 0.01;
+constexpr int KBIAS = -15;  // for gravity
+
 double leftArmMotorZero = 0;
 double rightArmMotorZero = 0;
 double armTarget = 0;
@@ -376,11 +389,7 @@ void umbc::Robot::opcontrol() {
     }
 
     if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_A)) {
-      if (arm_state == ARM_STATE::OVERRIDE) {
-        double tmp = 0;  // dummy variable that does nothing
-      } else {
-        arm_state = ARM_STATE::OVERRIDE;
-      }
+      arm_state = ARM_STATE::OVERRIDE;
     }
 
     if (arm_state != ARM_STATE::OVERRIDE) {
@@ -520,6 +529,9 @@ void umbc::Robot::opcontrol() {
     pros::lcd::set_text(2, std::to_string(slow_lift));
     pros::lcd::set_text(3, std::to_string(arm_motor_left.get_position()));
     pros::lcd::set_text(4, std::to_string(arm_motor_right.get_position()));
+
+    // Write telemetry stuffs
+    doctor();
 
     // required loop delay (do not edit)
     pros::Task::delay(this->opcontrol_delay_ms);
