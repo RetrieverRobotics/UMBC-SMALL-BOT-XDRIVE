@@ -1,0 +1,17 @@
+BasedOnStyle: Google
+
+# Prevent weird breaking around parentheses
+AlignAfterOpenBracket: DontAlign
+
+# Allow arguments to stay together
+BinPackArguments: true
+BinPackParameters: true
+
+# Prevent breaking before closing parenthesis
+PenaltyBreakBeforeFirstCallParameter: 1000000
+
+# Increase column limit so it doesn't wrap early
+ColumnLimit: 120
+
+# Prevent breaking inside parentheses unnecessarily
+AllowAllArgumentsOnNextLine: false

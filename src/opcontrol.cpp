@@ -23,57 +23,19 @@
 #include <fstream>
 #include <vector>
 
-// LOAD BEARING COMMENT: do not delete this comment or entire code will break
-// >:(
-
-/*
-    CURRENT BUTTON BINDINGS
-    left-analog stick & right-analog stick - controls drive train
-    up/down dpad - drive train speed selector
-    left/right dpad - score speed selector
-
-    A - arm override toggle
-    B - not binded
-    X - single ball outake
-    Y - OSOF button (oh shit of fuck, panic button to reset all states...
-   ethan's words)
-
-    L1 - Lift arm (both in overide and normal operation)
-    L2 - Lower arm (both in overide and normal operation)
-
-    R1 - toggle intake
-    R2 - toggle outake (speed based on current score speed state)
-*/
-
 using namespace pros;
 using namespace umbc;
 using namespace std;
 
-// #define MOTOR_RED_GEAR_MULTIPLIER 100
-// #define MOTOR_GREEN_GEAR_MULTIPLIER 200
-// #define MOTOR_BLUE_GEAR_MULTIPLIER 600
-// #define MOTOR_REVERSE true
-// #define REVERSED(port) -port
+#define MOTOR_RED_GEAR_MULTIPLIER 100
+#define MOTOR_GREEN_GEAR_MULTIPLIER 200
+#define MOTOR_BLUE_GEAR_MULTIPLIER 600
+#define MOTOR_REVERSE true
+#define REVERSED(port) -port
 
-// #define INTAKE_MOTOR_SPEED 100
-// #define TARGET_ERROR 5
-// #define dt 10
-
-// Converted MACROS to constexpr so they get evaluated at compile time instead
-// of run time and there will be added type safety
-constexpr int MOTOR_RED_GEAR_MULTIPLIER = 100;
-constexpr int MOTOR_GREEN_GEAR_MULTIPLIER = 200;
-constexpr int MOTOR_BLUE_GEAR_MULTIPLIER = 600;
-constexpr bool MOTOR_REVERSE = true;
-constexpr int REVERSED(int8_t port) { return -port; }
-
-constexpr int INTAKE_MOTOR_SPEED = 100;
-constexpr int TARGET_ERROR = 5;
-constexpr int dt = 10;
-
-void doctor();
-void start_diagnostics();
-void drive_doctor(std::ostream& writestream);
+#define INTAKE_MOTOR_SPEED 100
+#define TARGET_ERROR 5
+#define dt 10
 
 class PIDController {
  private:
@@ -126,39 +88,36 @@ class PIDController {
 // DOUBLE CHECK MOTORS!!!!!
 
 // ports for left drive motors (green)
-constexpr int LEFT_MOTOR_FRONT = 2;
-constexpr int LEFT_MOTOR_BACK = 11;
+#define LEFT_MOTOR_FRONT 2
+#define LEFT_MOTOR_BACK 11
 
 // ports for right drive motors (green)
-constexpr int RIGHT_MOTOR_FRONT = -7;
-constexpr int RIGHT_MOTOR_BACK = -20;
+#define RIGHT_MOTOR_FRONT -7
+#define RIGHT_MOTOR_BACK -20
 
 // ports for lift motors (red)
-constexpr int ARM_MOTOR_RIGHT = -21;
-constexpr int ARM_MOTOR_LEFT = 5;
+#define ARM_MOTOR_RIGHT -21
+#define ARM_MOTOR_LEFT 5
 
 // ports for intake motors (blue)
-constexpr int INTAKE_MOTOR_LEFT = 12;
-constexpr int INTAKE_MOTOR_RIGHT = -14;
+#define INTAKE_MOTOR_LEFT 12
+#define INTAKE_MOTOR_RIGHT -14
 
-constexpr int INTAKE_SINGLE_OUT_TIMMER = 320;
+#define INTAKE_SINGLE_OUT_TIMMER 320
 
-constexpr int RESET_BUTTON = 1;          // limit
-constexpr int REST_POSITION = 20;        // low goal
-constexpr int MID_GOAL_POSITION = -915;  // mid goal
+#define REST_POSITION 20        // low goal
+#define MID_GOAL_POSITION -915  // mid goal
 
-constexpr double KP = 0.1;
-constexpr double KD = 0.65;
-constexpr double KI = 0.01;
-constexpr int KBIAS = -15;  // for gravity
-
+#define KP 0.1
+#define KD 0.65
+#define KI 0.01
+#define KBIAS -15  // for gravity
 double leftArmMotorZero = 0;
 double rightArmMotorZero = 0;
 double armTarget = 0;
 
 // initialize motors
-std::vector<int8_t> drive_motors{LEFT_MOTOR_FRONT, LEFT_MOTOR_BACK,
-                                 RIGHT_MOTOR_FRONT, RIGHT_MOTOR_BACK};
+std::vector<int8_t> drive_motors{LEFT_MOTOR_FRONT, LEFT_MOTOR_BACK, RIGHT_MOTOR_FRONT, RIGHT_MOTOR_BACK};
 std::vector<int8_t> intake_motors{INTAKE_MOTOR_LEFT, INTAKE_MOTOR_RIGHT};
 std::vector<int8_t> arm_motors{ARM_MOTOR_RIGHT, ARM_MOTOR_LEFT};
 pros::MotorGroup driveGroup(drive_motors);
@@ -204,33 +163,19 @@ void umbc::Robot::opcontrol() {
   leftArmMotorZero = arm_motor_left.get_position();
   rightArmMotorZero = arm_motor_right.get_position();
 
-  // time-centered variables for intake/arm features
-  double time = 0;
-  double timmer_limit = INTAKE_SINGLE_OUT_TIMMER;
-  double intake_position_hold_r = 0;
-  double intake_position_hold_l = 0;
-
-  bool timed_outake = false;
-  bool allow_timed_outake = false;
-  bool break_timmer = false;
-  bool slow_lift = false;
-
-  // time-centered variables for intake/arm features
-  double time = 0;
-  double timmer_limit = INTAKE_SINGLE_OUT_TIMMER;
-  double intake_position_hold_r = 0;
-  double intake_position_hold_l = 0;
-
-  bool timed_outake = false;
-  bool allow_timed_outake = false;
-  bool break_timmer = false;
-  bool slow_lift = false;
-
   // motor states
   bool slowSpeedButton = false;
 
   enum class INTAKE_STATE { INTAKE_OFF, INTAKE_ON, INTAKE_REVERSE };
   INTAKE_STATE intakeState = INTAKE_STATE::INTAKE_OFF;
+  double time = 0;
+  double timmer_limit = INTAKE_SINGLE_OUT_TIMMER;
+  double intake_position_hold_r = 0;
+  double intake_position_hold_l = 0;
+
+  bool timed_outake = false;
+  bool allow_timed_outake = false;
+  bool break_timmer = false;
 
   enum class ARM_STATE {  // implement HIGH_GOAL if the bot can reach it
     REST,
@@ -246,12 +191,6 @@ void umbc::Robot::opcontrol() {
 
   enum class SCORE_SPEED { SLOW, DEFAULT, FAST };
   int score_speed_selector = 1;
-
-  // Limit switch
-  ADIDigitalIn reset_button(RESET_BUTTON);
-
-  // Limit switch
-  ADIDigitalIn reset_button(RESET_BUTTON);
 
   while (1) {
     // left joystick (target movement)
@@ -269,8 +208,7 @@ void umbc::Robot::opcontrol() {
 
     // right joystick (rotation)
     double right_x = controller_master->get_analog(E_CONTROLLER_ANALOG_RIGHT_X);
-    right_x =
-        pow(right_x, 3) / (127 * 127 * 127) * 0.75;  // cubing for finer control
+    right_x = pow(right_x, 3) / (127 * 127 * 127) * 0.75;  // cubing for finer control
 
     // converting to polar
     double radius = sqrt(left_x * left_x + left_y * left_y);
@@ -284,8 +222,7 @@ void umbc::Robot::opcontrol() {
 
     double speed = 0;
     if (radius != 0) {
-      speed = max({fabs(power_back_left), fabs(power_back_right),
-                   fabs(power_front_left), fabs(power_front_right)}) /
+      speed = max({fabs(power_back_left), fabs(power_back_right), fabs(power_front_left), fabs(power_front_right)}) /
               radius;
     }
 
@@ -300,20 +237,11 @@ void umbc::Robot::opcontrol() {
       vel_br = power_back_right;
     }
 
-    // AUTOMATED UNLOAD SEQUENCE
-    slow_lift = pros::millis() < 2500;
-    if (slow_lift) {
-      arm_motor_left.move_absolute(-300, -15);
-      arm_motor_right.move_absolute(-300, -15);
-    }
-
     // SPEED CONTROL
-    if (controller_master->get_digital_new_press(
-            E_CONTROLLER_DIGITAL_UP)) {  // toggle slow speed
+    if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_UP)) {  // toggle slow speed
       speed_state_selector++;
     }
-    if (controller_master->get_digital_new_press(
-            E_CONTROLLER_DIGITAL_DOWN)) {  // toggle slow speed
+    if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_DOWN)) {  // toggle slow speed
       speed_state_selector--;
     }
 
@@ -325,8 +253,7 @@ void umbc::Robot::opcontrol() {
     driveState = (DRIVE_STATE)speed_state_selector;
 
     // INTAKE CONTROLS
-    if (controller_master->get_digital_new_press(
-            E_CONTROLLER_DIGITAL_R1)) {  // toggle intake on
+    if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R1)) {  // toggle intake on
       if (intakeState == INTAKE_STATE::INTAKE_ON) {
         intakeState = INTAKE_STATE::INTAKE_OFF;
       } else {
@@ -335,9 +262,8 @@ void umbc::Robot::opcontrol() {
     }
 
     if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_X)) {
-      time = pros::millis();  // reset time so measure with
-      allow_timed_outake =
-          true;  // latch to prevent outake from working on start up
+      time = pros::millis();      // reset time so measure with
+      allow_timed_outake = true;  // latch to prevent outake from working on start up
     }
     timed_outake = ((pros::millis() - time) < timmer_limit);
     break_timmer = ((pros::millis() - time) < timmer_limit + 50);
@@ -351,13 +277,11 @@ void umbc::Robot::opcontrol() {
     }
 
     if (controller_master->get_digital_new_press(
-            E_CONTROLLER_DIGITAL_RIGHT)) {  // changes score speed, mainly for
-                                            // skills
+            E_CONTROLLER_DIGITAL_RIGHT)) {  // changes score speed, mainly for skills
       score_speed_selector++;
     }
-    if (controller_master->get_digital_new_press(
-            E_CONTROLLER_DIGITAL_LEFT)) {  // changes score speed, mainly for
-                                           // skills
+    if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_LEFT)) {  // changes score speed, mainly for
+                                                                                // skills
       score_speed_selector--;
     }
 
@@ -377,19 +301,19 @@ void umbc::Robot::opcontrol() {
     }
 
     // LIFT CONTROLS
-
     // override switch
-    if (reset_button.get_new_press()) {
-      arm_motor_left.tare_position();
-      arm_motor_right.tare_position();
-      leftArmMotorZero = arm_motor_left.get_position();
-      rightArmMotorZero = arm_motor_right.get_position();
-      arm_state_selector = (int)ARM_STATE::REST;
-      arm_state = ARM_STATE::REST;
-    }
-
     if (controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_A)) {
-      arm_state = ARM_STATE::OVERRIDE;
+      if (arm_state == ARM_STATE::OVERRIDE) {
+        arm_motor_left.tare_position();
+        arm_motor_right.tare_position();
+        leftArmMotorZero = arm_motor_left.get_position();
+        rightArmMotorZero = arm_motor_right.get_position();
+        arm_state_selector = (int)ARM_STATE::REST;
+        arm_state = ARM_STATE::REST;
+      } else {
+        arm_state_selector = (int)ARM_STATE::OVERRIDE;
+        arm_state = ARM_STATE::OVERRIDE;
+      }
     }
 
     if (arm_state != ARM_STATE::OVERRIDE) {
@@ -467,29 +391,21 @@ void umbc::Robot::opcontrol() {
     }
 
     // drive motors
-    left_motor_front.move_velocity((vel_fl + right_x) *
-                                   MOTOR_GREEN_GEAR_MULTIPLIER * 0.7);
-    left_motor_back.move_velocity((vel_bl + right_x) *
-                                  MOTOR_GREEN_GEAR_MULTIPLIER * 0.7);
-    right_motor_front.move_velocity((vel_fr - right_x) *
-                                    MOTOR_GREEN_GEAR_MULTIPLIER * 0.7);
-    right_motor_back.move_velocity((vel_br - right_x) *
-                                   MOTOR_GREEN_GEAR_MULTIPLIER * 0.7);
+    left_motor_front.move_velocity((vel_fl + right_x) * MOTOR_GREEN_GEAR_MULTIPLIER * 0.7);
+    left_motor_back.move_velocity((vel_bl + right_x) * MOTOR_GREEN_GEAR_MULTIPLIER * 0.7);
+    right_motor_front.move_velocity((vel_fr - right_x) * MOTOR_GREEN_GEAR_MULTIPLIER * 0.7);
+    right_motor_back.move_velocity((vel_br - right_x) * MOTOR_GREEN_GEAR_MULTIPLIER * 0.7);
 
     // lift motors
     double leftArmVolt = 0;
     double rightArmVolt = 0;
 
     // if arms are not within target error && arms are not in override, calc PID
-    if (!(fabs(arm_motor_left.get_position() - leftArmMotorZero - armTarget) <
-              TARGET_ERROR &&
-          fabs(arm_motor_right.get_position() - rightArmMotorZero - armTarget) <
-              TARGET_ERROR) &&
+    if (!(fabs(arm_motor_left.get_position() - leftArmMotorZero - armTarget) < TARGET_ERROR &&
+            fabs(arm_motor_right.get_position() - rightArmMotorZero - armTarget) < TARGET_ERROR) &&
         arm_state != ARM_STATE::OVERRIDE) {
-      leftArmVolt = leftArmPID.calculatePID(
-          armTarget, arm_motor_left.get_position() - leftArmMotorZero);
-      rightArmVolt = rightArmPID.calculatePID(
-          armTarget, arm_motor_right.get_position() - rightArmMotorZero);
+      leftArmVolt = leftArmPID.calculatePID(armTarget, arm_motor_left.get_position() - leftArmMotorZero);
+      rightArmVolt = rightArmPID.calculatePID(armTarget, arm_motor_right.get_position() - rightArmMotorZero);
     } else {
       leftArmPID.reset();
       rightArmPID.reset();
@@ -506,32 +422,25 @@ void umbc::Robot::opcontrol() {
         arm_motor_left.move_velocity(0);
         arm_motor_right.move_velocity(0);
       }
-    } else if (slow_lift == false) {
+    } else {
       arm_motor_left.move_voltage(leftArmVolt);
       arm_motor_right.move_voltage(rightArmVolt);
     }
 
     if (timed_outake &&
-        allow_timed_outake) {  // drives intake when timmer is active (only
-                               // works here for some reason DON'T MOVE)
+        allow_timed_outake) {  // drives intake when timmer is active (only works here for some reason DON'T MOVE)
       intake_position_hold_l = intake_motor_left.get_position();
       intake_position_hold_r = intake_motor_right.get_position();
       intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
       intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
     }
     if (break_timmer && allow_timed_outake &&
-        !timed_outake) {  // locks motors into last recorded position to shoot
-                          // ball at the end
+        !timed_outake) {  // locks motors into last recorded position to shoot ball at the end
       intake_motor_left.move_absolute(intake_position_hold_l, 100);
       intake_motor_right.move_absolute(intake_position_hold_r, 100);
     }
 
-    pros::lcd::set_text(2, std::to_string(slow_lift));
-    pros::lcd::set_text(3, std::to_string(arm_motor_left.get_position()));
-    pros::lcd::set_text(4, std::to_string(arm_motor_right.get_position()));
-
-    // Write telemetry stuffs
-    doctor();
+    pros::lcd::set_text(2, std::to_string(timmer_limit));
 
     // required loop delay (do not edit)
     pros::Task::delay(this->opcontrol_delay_ms);
@@ -552,8 +461,7 @@ void drive_doctor(std::ostream& writestream) {
   std::vector<double> temps = driveGroup.get_temperature_all();
   for (size_t i = 0; i < temps.size(); ++i) {
     if (temps[i] > 55.0) {  // 55C is kinda hot idk
-      writestream << "[" << now << "] WARNING: Motor on Index " << i
-                  << " is hot: " << temps[i] << "C" << std::endl;
+      writestream << "[" << now << "] WARNING: Motor on Index " << i << " is hot: " << temps[i] << "C" << std::endl;
     }
   }
 
@@ -561,8 +469,7 @@ void drive_doctor(std::ostream& writestream) {
   std::vector<int32_t> currents = driveGroup.get_current_draw_all();
   for (size_t i = 0; i < currents.size(); ++i) {
     if (currents[i] > 2000) {  // Example: > 2000mA (2A) draw
-      writestream << "[" << now << "] ALERT: Motor " << i
-                  << " over-current: " << currents[i] << "mA" << std::endl;
+      writestream << "[" << now << "] ALERT: Motor " << i << " over-current: " << currents[i] << "mA" << std::endl;
     }
   }
 
@@ -570,8 +477,7 @@ void drive_doctor(std::ostream& writestream) {
   // but we can log power/velocity ratios or use get_efficiency().
   std::vector<double> efficiencies = driveGroup.get_efficiency_all();
   for (size_t i = 0; i < efficiencies.size(); ++i) {
-    writestream << "[" << now << "] Motor " << i
-                << " Efficiency: " << efficiencies[i] << "%" << std::endl;
+    writestream << "[" << now << "] Motor " << i << " Efficiency: " << efficiencies[i] << "%" << std::endl;
   }
 }
 
@@ -602,4 +508,5 @@ void doctor() {
 }
 
 // How to start it in initialize() or autonomous()
-void start_diagnostics() { pros::Task telemetry_task(doctor); }
+void start_diagnostics() {  // pros::Task telemetry_task(doctor);
+}
