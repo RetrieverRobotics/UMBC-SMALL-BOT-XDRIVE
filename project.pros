@@ -736,7 +736,7 @@
     "upload_options": {
       "description": "UMBC Retreiver Robotics standard competition template for the VEX-U Competition.",
       "icon": "X",
-      "slot": 6
+      "slot": 7
     },
     "use_early_access": false
   }

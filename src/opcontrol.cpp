@@ -6,6 +6,12 @@
  * the master V5 controller or partner V5 controller.
  */
 
+#include <time.h>
+
+#include <cmath>
+#include <cstdint>
+#include <vector>
+
 #include "api.h"
 #include "pros/adi.hpp"
 #include "pros/llemu.hpp"
@@ -14,14 +20,6 @@
 #include "pros/rtos.hpp"
 #include "umbc.h"
 #include "umbc/robot.hpp"
-// #include "okapi\api\control\iterative\iterativePosPidController.hpp"
-// #include "okapi\impl\util\configurableTimeUtilFactory.hpp"
-#include <time.h>
-
-#include <cmath>
-#include <cstdint>
-#include <fstream>
-#include <vector>
 
 using namespace pros;
 using namespace umbc;
@@ -116,14 +114,6 @@ double leftArmMotorZero = 0;
 double rightArmMotorZero = 0;
 double armTarget = 0;
 
-// initialize motors
-std::vector<int8_t> drive_motors{LEFT_MOTOR_FRONT, LEFT_MOTOR_BACK, RIGHT_MOTOR_FRONT, RIGHT_MOTOR_BACK};
-std::vector<int8_t> intake_motors{INTAKE_MOTOR_LEFT, INTAKE_MOTOR_RIGHT};
-std::vector<int8_t> arm_motors{ARM_MOTOR_RIGHT, ARM_MOTOR_LEFT};
-pros::MotorGroup driveGroup(drive_motors);
-pros::MotorGroup intakeGroup(intake_motors);
-pros::MotorGroup armGroup(arm_motors);
-
 void umbc::Robot::opcontrol() {
   // nice names for controllers (do not edit)
   umbc::Controller* controller_master = this->controller_master;
@@ -132,6 +122,14 @@ void umbc::Robot::opcontrol() {
   // initialize PID controller for arm
   PIDController leftArmPID(KP, KI, KD, KBIAS);
   PIDController rightArmPID(KP, KI, KD, KBIAS);
+
+  // initialize motors
+  std::vector<int8_t> drive_motors{LEFT_MOTOR_FRONT, LEFT_MOTOR_BACK, RIGHT_MOTOR_FRONT, RIGHT_MOTOR_BACK};
+  std::vector<int8_t> intake_motors{INTAKE_MOTOR_LEFT, INTAKE_MOTOR_RIGHT};
+  std::vector<int8_t> arm_motors{ARM_MOTOR_RIGHT, ARM_MOTOR_LEFT};
+  pros::MotorGroup driveGroup(drive_motors);
+  pros::MotorGroup intakeGroup(intake_motors);
+  pros::MotorGroup armGroup(arm_motors);
 
   // brakes and gearing
   // DRIVE
@@ -445,68 +443,4 @@ void umbc::Robot::opcontrol() {
     // required loop delay (do not edit)
     pros::Task::delay(this->opcontrol_delay_ms);
   }
-}
-
-//------------------------------------------------------------------------------------------------
-
-// Assuming these are defined in your global scope or main.h
-// extern pros::MotorGroup driveGroup;
-
-void drive_doctor(std::ostream& writestream) {
-  // Get timestamp (Number of seconds since Pros Initialized)
-  uint32_t now = pros::millis();
-
-  // 1. Temperature Check
-  // In PROS 4, we iterate through the group or use get_temperatures()
-  std::vector<double> temps = driveGroup.get_temperature_all();
-  for (size_t i = 0; i < temps.size(); ++i) {
-    if (temps[i] > 55.0) {  // 55C is kinda hot idk
-      writestream << "[" << now << "] WARNING: Motor on Index " << i << " is hot: " << temps[i] << "C" << std::endl;
-    }
-  }
-
-  // 2. Current Check
-  std::vector<int32_t> currents = driveGroup.get_current_draw_all();
-  for (size_t i = 0; i < currents.size(); ++i) {
-    if (currents[i] > 2000) {  // Example: > 2000mA (2A) draw
-      writestream << "[" << now << "] ALERT: Motor " << i << " over-current: " << currents[i] << "mA" << std::endl;
-    }
-  }
-
-  // 3. Efficiency Check (Custom calculation or standard telemetry)
-  // but we can log power/velocity ratios or use get_efficiency().
-  std::vector<double> efficiencies = driveGroup.get_efficiency_all();
-  for (size_t i = 0; i < efficiencies.size(); ++i) {
-    writestream << "[" << now << "] Motor " << i << " Efficiency: " << efficiencies[i] << "%" << std::endl;
-  }
-}
-
-void doctor() {
-  // Open the file in Append mode so we don't wipe previous runs
-  std::ofstream telemetry_file("/usd/doctors_diagnosis.txt", std::ios::app);
-
-  // If the file isn't open
-  if (!telemetry_file.is_open()) {
-    pros::lcd::set_text(1, "SD Card Error: File not opened");
-    return;
-  }
-
-  telemetry_file << "--- DOCTOR DAVEY'S SESSION STARTED ---" << std::endl;
-
-  while (true) {
-    drive_doctor(telemetry_file);
-    // intake_doctor(telemetry_file);
-    // arm_doctor(telemetry_file);
-
-    // ESSENTIAL: Flush data to the SD card so it saves if the robot is turned
-    // off
-    telemetry_file.flush();
-
-    // Delay to prevent CPU hogging and SD card wear
-    pros::delay(500);
-  }
-}
-
-// How to start it in initialize() or autonomous()
-void start_diagnostics() {  // pros::Task telemetry_task(doctor);
 }
