@@ -30,13 +30,10 @@ constexpr int MOTOR_RED_GEAR_MULTIPLIER    = 100;
 constexpr int MOTOR_GREEN_GEAR_MULTIPLIER  = 200;
 constexpr int MOTOR_BLUE_GEAR_MULTIPLIER   = 600;
 constexpr bool MOTOR_REVERSE                = true;
-constexpr int8_t REVERSED(int8_t port) {
-    return -port;
-}
 
 constexpr int INTAKE_MOTOR_SPEED = 100;
 constexpr int TARGET_ERROR = 5;
-constexpr int dt = 10;
+//constexpr int dt = 10; avoid hardcoded value for dt; this would only work in a perfect scenario
  
 class PIDController {
     private:
@@ -65,10 +62,10 @@ class PIDController {
             totalError = 0;
         }
 
-        double calculatePID(double target, double current){
+        double calculatePID(double target, double current, int time_step){
             error = target - current;
-            changeError = (error - prev_error)/dt;
-            totalError += error * dt;
+            changeError = (error - prev_error)/time_step;
+            totalError += error * time_step;
             prev_error = error;
 
             //capping totalError to prevent possible overshooting
@@ -186,13 +183,15 @@ void umbc::Robot::opcontrol() {
     bool timed_outake = false;
     bool allow_timed_outake = false;
     bool break_timer = false;
-    
+    bool timed_outake_started = false; //Needs debugging where called 
+
     enum class ARM_STATE{ //implement HIGH_GOAL if the bot can reach it
         REST,
         MID_GOAL,
         OVERRIDE
     };
     ARM_STATE arm_state = ARM_STATE::REST;
+    ARM_STATE prev_arm_state = arm_state; //Prev arm state for PID purposes
     int arm_state_selector = 0;
 
     enum class DRIVE_STATE{
@@ -212,6 +211,8 @@ void umbc::Robot::opcontrol() {
     const double INV_COS_45 = 1.0 / cos(PI_OVER_4); //Save on repeated  calculations in the loop when determining motor speed
 
     while(1) {
+
+        uint32_t loop_start = pros::millis();
         //left joystick (target movement)
         double raw_left_x = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_X);
         double raw_left_y = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
@@ -222,31 +223,43 @@ void umbc::Robot::opcontrol() {
 
         //right joystick (rotation)
         double raw_right_x = controller_master->get_analog(E_CONTROLLER_ANALOG_RIGHT_X);
-        double right_x = (raw_right_x * raw_right_x * raw_right_x) * INV_127_CUBED * 0.75; //cubing for finer control (don't know what 0.75 is)
+        double right_x = (raw_right_x * raw_right_x * raw_right_x) * INV_127_CUBED * 0.75; //cubing for finer control; I believe 0.75 is a sensitivity cap
         
         //converting to polar
-        double radius = sqrt(left_x * left_x + left_y * left_y);
-        double theta  = atan2(left_y, left_x);
+        //double radius = sqrt(left_x * left_x + left_y * left_y);
+        //double theta  = atan2(left_y, left_x);
 
         //this will determine the speed of each motor
-        double power_front_left = sin(theta + PI_OVER_4) * INV_COS_45;
-        double power_front_right = -cos(theta + PI_OVER_4) * INV_COS_45;
-        double power_back_left = -cos(theta + PI_OVER_4) * INV_COS_45;
-        double power_back_right = sin(theta + PI_OVER_4) * INV_COS_45; 
+        //double power_front_left = sin(theta + PI_OVER_4) * INV_COS_45;
+        //double power_front_right = -cos(theta + PI_OVER_4) * INV_COS_45;
+        //double power_back_left = -cos(theta + PI_OVER_4) * INV_COS_45;
+        //double power_back_right = sin(theta + PI_OVER_4) * INV_COS_45; 
 
         //Combine translation before normalization
-        double raw_fl = power_front_left * radius + right_x;
-        double raw_fr = power_front_right * radius - right_x;
-        double raw_bl = power_back_left * radius + right_x;
-        double raw_br = power_back_right * radius - right_x;
+        //double raw_fl = power_front_left * radius + right_x;
+        //double raw_fr = power_front_right * radius - right_x;
+        //double raw_bl = power_back_left * radius + right_x;
+        //double raw_br = power_back_right * radius - right_x;
         
-        double maxPower = max({fabs(raw_fl), fabs(raw_fr), fabs(raw_bl), fabs(raw_br)});
-        double scale = (maxPower > 1.0) ? maxPower : 1.0;
+    
+        //double vel_fl = raw_fl / scale;
+        //double vel_fr = raw_fr / scale;
+        //double vel_bl = raw_bl / scale;
+        //double vel_br = raw_br / scale;
 
-        double vel_fl = raw_fl / scale;
-        double vel_fr = raw_fr / scale;
-        double vel_bl = raw_bl / scale;
-        double vel_br = raw_br / scale;
+        //Believe it or not, the previous polar calculations just simplify to this
+        double vel_fl =  left_y + left_x + right_x;
+        double vel_fr = left_y - left_x - right_x;
+        double vel_bl = left_y - left_x + right_x;
+        double vel_br = left_y + left_x - right_x;
+
+        //Normalization step; makes sure all motors move the same speed
+        double maxPower = max({fabs(vel_fl), fabs(vel_fr), fabs(vel_bl), fabs(vel_br), 1.0});
+        vel_fl /= maxPower;
+        vel_fr /= maxPower;
+        vel_bl /= maxPower;
+        vel_br /= maxPower;
+
         
         //SPEED CONTROL
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_UP)){ //toggle slow speed
@@ -291,6 +304,7 @@ void umbc::Robot::opcontrol() {
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_X)){
             time = now; //reset time so measure with
             allow_timed_outake = true; //latch to prevent outake from working on start up
+            timed_outake_started = false;
         }
         timed_outake = ((now - time) < timer_limit);
         break_timer = ((now - time) < timer_limit + 50);
@@ -373,23 +387,6 @@ void umbc::Robot::opcontrol() {
                 
 
         //MOVING MOTORS
-        //drive speed states
-        switch(driveState){
-            case DRIVE_STATE::SLOW_DRIVE:
-                vel_fl *= 0.5;
-                vel_fr *= 0.5;
-                vel_bl *= 0.5;
-                vel_br *= 0.5;
-                break;
-            case DRIVE_STATE::DEFAULT_DRIVE:
-                break;
-            case DRIVE_STATE::FAST_DRIVE:
-                vel_fl *= 1.25;
-                vel_fr *= 1.25;
-                vel_bl *= 1.25;
-                vel_br *= 1.25;
-                break;
-        }
 
         //intake motors
         switch(intakeState){
@@ -416,27 +413,43 @@ void umbc::Robot::opcontrol() {
                 }
                 break;
         }
+
+
+        double drive_rpm_scale; //This is the same as making the bot go mach fuck or abysmally slow, just accounts for normalization now instead of using 0.7
+        switch(driveState){
+            case DRIVE_STATE::SLOW_DRIVE:    
+                drive_rpm_scale = 0.4; break;
+            case DRIVE_STATE::DEFAULT_DRIVE:
+                drive_rpm_scale = 0.7; break;
+            case DRIVE_STATE::FAST_DRIVE:
+                drive_rpm_scale = 1.0; break;
+        }
         
         //drive motors
-        left_motor_front.move_velocity(vel_fl * MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
-        left_motor_back.move_velocity(vel_bl * MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
-        right_motor_front.move_velocity(vel_fr * MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
-        right_motor_back.move_velocity(vel_br * MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
+        left_motor_front.move_velocity(vel_fl * MOTOR_GREEN_GEAR_MULTIPLIER * drive_rpm_scale);
+        left_motor_back.move_velocity(vel_bl * MOTOR_GREEN_GEAR_MULTIPLIER* drive_rpm_scale);
+        right_motor_front.move_velocity(vel_fr * MOTOR_GREEN_GEAR_MULTIPLIER* drive_rpm_scale);
+        right_motor_back.move_velocity(vel_br * MOTOR_GREEN_GEAR_MULTIPLIER* drive_rpm_scale);
 
         //lift motors
         double leftArmVolt = 0;
         double rightArmVolt = 0;
 
         //if arms are not within target error && arms are not in override, calc PID
-        if(!(fabs(arm_motor_left.get_position() - leftArmMotorZero - armTarget) < TARGET_ERROR &&
-           fabs(arm_motor_right.get_position() - rightArmMotorZero - armTarget) < TARGET_ERROR) && arm_state != ARM_STATE::OVERRIDE){
-            leftArmVolt = leftArmPID.calculatePID(armTarget, arm_motor_left.get_position() - leftArmMotorZero);
-            rightArmVolt = rightArmPID.calculatePID(armTarget, arm_motor_right.get_position() - rightArmMotorZero);
-        }
-        else{
+        if (arm_state != prev_arm_state){
             leftArmPID.reset();
             rightArmPID.reset();
+            prev_arm_state = arm_state;
         }
+
+        if(!(fabs(arm_motor_left.get_position() - leftArmMotorZero - armTarget) < TARGET_ERROR &&
+           fabs(arm_motor_right.get_position() - rightArmMotorZero - armTarget) < TARGET_ERROR) && arm_state != ARM_STATE::OVERRIDE){
+
+            double time_step = pros::millis() - loop_start + this->opcontrol_delay_ms + 1; //calculates dt for pid; hardcoded dt assumed loop ran perfectly at 10ms; the + 1 protects against 0 division
+            leftArmVolt = leftArmPID.calculatePID(armTarget, arm_motor_left.get_position() - leftArmMotorZero, time_step);
+            rightArmVolt = rightArmPID.calculatePID(armTarget, arm_motor_right.get_position() - rightArmMotorZero, time_step);
+        }
+        
         
         if(arm_state == ARM_STATE::OVERRIDE){
             if(controller_master->get_digital(E_CONTROLLER_DIGITAL_L1)){
@@ -457,12 +470,18 @@ void umbc::Robot::opcontrol() {
             arm_motor_right.move_voltage(rightArmVolt);
         }
         
-        if(timed_outake && allow_timed_outake){ //drives intake when timer is active (only works here for some reason DON'T MOVE)
-            intake_position_hold_l = intake_motor_left.get_position();
-            intake_position_hold_r = intake_motor_right.get_position();
+        //This if block needs extensive debugging/testing
+        if(timed_outake && allow_timed_outake){
+            if(!timed_outake_started){ // capture position only on the first iteration
+                intake_position_hold_l = intake_motor_left.get_position();
+                intake_position_hold_r = intake_motor_right.get_position();
+                timed_outake_started = true;
+            }
+
             intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
             intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
         }
+
         if(break_timer && allow_timed_outake && !timed_outake){ //locks motors into last recorded position to shoot ball at the end
             intake_motor_left.move_absolute(intake_position_hold_l, 100);
             intake_motor_right.move_absolute(intake_position_hold_r, 100);
