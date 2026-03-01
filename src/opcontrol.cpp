@@ -23,16 +23,20 @@ using namespace pros;
 using namespace umbc;
 using namespace std;
 
+/* I swear I'm going to have a real stern talking to to whoever the fuck put 
+magic numbers everywhere */
   
-#define MOTOR_RED_GEAR_MULTIPLIER       100
-#define MOTOR_GREEN_GEAR_MULTIPLIER     200
-#define MOTOR_BLUE_GEAR_MULTIPLIER      600
-#define MOTOR_REVERSE                   true
-#define REVERSED(port)                  -port
+constexpr int MOTOR_RED_GEAR_MULTIPLIER    = 100;
+constexpr int MOTOR_GREEN_GEAR_MULTIPLIER  = 200;
+constexpr int MOTOR_BLUE_GEAR_MULTIPLIER   = 600;
+constexpr bool MOTOR_REVERSE                = true;
+constexpr int8_t REVERSED(int8_t port) {
+    return -port;
+}
 
-#define INTAKE_MOTOR_SPEED              100
-#define TARGET_ERROR                    5
-#define dt                              10
+constexpr int INTAKE_MOTOR_SPEED = 100;
+constexpr int TARGET_ERROR = 5;
+constexpr int dt = 10;
  
 class PIDController {
     private:
@@ -86,32 +90,32 @@ class PIDController {
 //DOUBLE CHECK MOTORS!!!!!
   
 //ports for left drive motors (green)
-#define LEFT_MOTOR_FRONT        2
-#define LEFT_MOTOR_BACK         11
+constexpr int LEFT_MOTOR_FRONT = 2;
+constexpr int LEFT_MOTOR_BACK = 11;
        
   
 //ports for right drive motors (green)
-#define RIGHT_MOTOR_FRONT      -7
-#define RIGHT_MOTOR_BACK       -20
+constexpr int RIGHT_MOTOR_FRONT = -7;
+constexpr int RIGHT_MOTOR_BACK  = -20;
 
 //ports for lift motors (red)
-#define ARM_MOTOR_RIGHT        -21
-#define ARM_MOTOR_LEFT          5
+constexpr int ARM_MOTOR_RIGHT = -21;
+constexpr int ARM_MOTOR_LEFT = 5;
 
 //ports for intake motors (blue)
-#define INTAKE_MOTOR_LEFT                   12
-#define INTAKE_MOTOR_RIGHT                  -13
+constexpr int INTAKE_MOTOR_LEFT = 12;
+constexpr int INTAKE_MOTOR_RIGHT  = -13;
 
-#define INTAKE_SINGLE_OUT_TIMMER       320
+constexpr int INTAKE_SINGLE_OUT_TIMER = 320;
 
-#define REST_POSITION           20    //low goal
-#define MID_GOAL_POSITION      -915    //mid goal
+constexpr int REST_POSITION  = 20;    //low goal
+constexpr int MID_GOAL_POSITION = -915;   //mid goal
 
 
-#define KP                   0.1
-#define KD                   0.65
-#define KI                   0.01
-#define KBIAS                -15        //for gravity
+constexpr double KP = 0.1;
+constexpr double KD = 0.65;
+constexpr double KI = 0.01;
+constexpr int KBIAS = -15;      //for gravity
 double leftArmMotorZero = 0;
 double rightArmMotorZero = 0;
 double armTarget = 0;
@@ -174,14 +178,14 @@ void umbc::Robot::opcontrol() {
         INTAKE_REVERSE
     };
     INTAKE_STATE intakeState = INTAKE_STATE::INTAKE_OFF;
-    double time = 0;
-    double timmer_limit = INTAKE_SINGLE_OUT_TIMMER;
+    uint32_t time = 0; //previously was a double, however pros::millis() returns a 32 bit integer
+    double timer_limit = INTAKE_SINGLE_OUT_TIMER;
     double intake_position_hold_r = 0;
     double intake_position_hold_l = 0;
 
     bool timed_outake = false;
     bool allow_timed_outake = false;
-    bool break_timmer = false;
+    bool break_timer = false;
     
     enum class ARM_STATE{ //implement HIGH_GOAL if the bot can reach it
         REST,
@@ -203,49 +207,46 @@ void umbc::Robot::opcontrol() {
     int score_speed_selector = 1;
 
 
+    constexpr double INV_127_CUBED = 1.0 / 2048383.0; //substitutes 127 * 127 * 127, whatever that means (magic number)
+    const double PI_OVER_4 = M_PI/4;
+    const double INV_COS_45 = 1.0 / cos(PI_OVER_4); //Save on repeated  calculations in the loop when determining motor speed
+
     while(1) {
         //left joystick (target movement)
-        double left_x = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_X);
-        double left_y = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
+        double raw_left_x = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_X);
+        double raw_left_y = controller_master->get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
+
         //controller deadzone
-        if(left_x > -15 && left_x < 15){
-            left_x = 0;
-        }
-        if(left_y > -15 && left_y < 15){
-            left_y = 0;
-        }
-        left_x = pow(left_x, 3) / (127 * 127 * 127); //cubing for finer control
-        left_y = pow(left_y, 3) / (127 * 127 * 127);
+        double left_x = (std::abs(raw_left_x) < 15) ? 0 : (raw_left_x * raw_left_x * raw_left_x) * INV_127_CUBED ;
+        double left_y = (std::abs(raw_left_y) < 15) ? 0 : (raw_left_y * raw_left_y * raw_left_y) * INV_127_CUBED ;
 
         //right joystick (rotation)
-        double right_x = controller_master->get_analog(E_CONTROLLER_ANALOG_RIGHT_X);
-        right_x = pow(right_x, 3) / (127 * 127 * 127) *0.75; //cubing for finer control
+        double raw_right_x = controller_master->get_analog(E_CONTROLLER_ANALOG_RIGHT_X);
+        double right_x = (raw_right_x * raw_right_x * raw_right_x) * INV_127_CUBED * 0.75; //cubing for finer control (don't know what 0.75 is)
         
         //converting to polar
         double radius = sqrt(left_x * left_x + left_y * left_y);
         double theta  = atan2(left_y, left_x);
 
         //this will determine the speed of each motor
-        double power_front_left = sin(theta + (M_PI)/4) / cos(M_PI/4);
-        double power_front_right = -cos(theta + (M_PI/4)) / cos(M_PI/4);
-        double power_back_left = -cos(theta + (M_PI/4)) / cos(M_PI/4);
-        double power_back_right = sin(theta + (M_PI)/4) / cos(M_PI/4); 
-        
-        double speed = 0;
-        if(radius != 0){
-            speed = max({fabs(power_back_left), fabs(power_back_right), fabs(power_front_left), fabs(power_front_right)}) / radius;
-        }
+        double power_front_left = sin(theta + PI_OVER_4) * INV_COS_45;
+        double power_front_right = -cos(theta + PI_OVER_4) * INV_COS_45;
+        double power_back_left = -cos(theta + PI_OVER_4) * INV_COS_45;
+        double power_back_right = sin(theta + PI_OVER_4) * INV_COS_45; 
 
-        double vel_fl = 0;
-        double vel_fr = 0;
-        double vel_bl = 0;
-        double vel_br = 0;
-        if(speed != 0){
-            vel_fl = power_front_left;
-            vel_fr = power_front_right;
-            vel_bl = power_back_left;
-            vel_br = power_back_right;
-        }
+        //Combine translation before normalization
+        double raw_fl = power_front_left * radius + right_x;
+        double raw_fr = power_front_right * radius - right_x;
+        double raw_bl = power_back_left * radius + right_x;
+        double raw_br = power_back_right * radius - right_x;
+        
+        double maxPower = max({fabs(raw_fl), fabs(raw_fr), fabs(raw_bl), fabs(raw_br)});
+        double scale = (maxPower > 1.0) ? maxPower : 1.0;
+
+        double vel_fl = raw_fl / scale;
+        double vel_fr = raw_fr / scale;
+        double vel_bl = raw_bl / scale;
+        double vel_br = raw_br / scale;
         
         //SPEED CONTROL
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_UP)){ //toggle slow speed
@@ -255,6 +256,7 @@ void umbc::Robot::opcontrol() {
             speed_state_selector--;
         }
 
+        //Caps the speed state to the 2nd speed (I believe) and makes sure the lowest state is 0
         if(speed_state_selector > 2){
             speed_state_selector = 2;
         }else if (speed_state_selector < 0){
@@ -263,23 +265,18 @@ void umbc::Robot::opcontrol() {
         driveState = (DRIVE_STATE)speed_state_selector;
         
         //INTAKE CONTROLS
-        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R1)){ //toggle intake on
+        //Toggle forward intake
+        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R1)){ //toggle intake
             if(intakeState == INTAKE_STATE::INTAKE_ON){
                 intakeState = INTAKE_STATE::INTAKE_OFF;
             }
             else{
                 intakeState = INTAKE_STATE::INTAKE_ON;
             }
-        }
-        
-        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_X)){
-            time = pros::millis(); //reset time so measure with
-            allow_timed_outake = true; //latch to prevent outake from working on start up
-        }
-        timed_outake = ((pros::millis() - time) < timmer_limit);
-        break_timmer = ((pros::millis() - time) < timmer_limit + 50);
-        
 
+        }
+
+        // Toggle reverse Intake
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_R2))
         {
             if(intakeState == INTAKE_STATE::INTAKE_REVERSE){
@@ -289,6 +286,17 @@ void umbc::Robot::opcontrol() {
                 intakeState = INTAKE_STATE::INTAKE_REVERSE;
             }
         }
+        
+        uint32_t now = pros::millis();
+        if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_X)){
+            time = now; //reset time so measure with
+            allow_timed_outake = true; //latch to prevent outake from working on start up
+        }
+        timed_outake = ((now - time) < timer_limit);
+        break_timer = ((now - time) < timer_limit + 50);
+        
+
+        
 
         if(controller_master->get_digital_new_press(E_CONTROLLER_DIGITAL_RIGHT)){ //changes score speed, mainly for skills
             score_speed_selector++;
@@ -297,6 +305,7 @@ void umbc::Robot::opcontrol() {
             score_speed_selector--;
         }
 
+        //might be able to use mod lokey; I'm leaving for now
         if(score_speed_selector > 2){
             score_speed_selector = 2;
         }else if (score_speed_selector < 0){
@@ -409,10 +418,10 @@ void umbc::Robot::opcontrol() {
         }
         
         //drive motors
-        left_motor_front.move_velocity((vel_fl + right_x)*MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
-        left_motor_back.move_velocity((vel_bl + right_x)*MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
-        right_motor_front.move_velocity((vel_fr - right_x)*MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
-        right_motor_back.move_velocity((vel_br - right_x)*MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
+        left_motor_front.move_velocity(vel_fl * MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
+        left_motor_back.move_velocity(vel_bl * MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
+        right_motor_front.move_velocity(vel_fr * MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
+        right_motor_back.move_velocity(vel_br * MOTOR_GREEN_GEAR_MULTIPLIER*0.7);
 
         //lift motors
         double leftArmVolt = 0;
@@ -448,18 +457,18 @@ void umbc::Robot::opcontrol() {
             arm_motor_right.move_voltage(rightArmVolt);
         }
         
-        if(timed_outake && allow_timed_outake){ //drives intake when timmer is active (only works here for some reason DON'T MOVE)
+        if(timed_outake && allow_timed_outake){ //drives intake when timer is active (only works here for some reason DON'T MOVE)
             intake_position_hold_l = intake_motor_left.get_position();
             intake_position_hold_r = intake_motor_right.get_position();
             intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
             intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * 0.85);
         }
-        if(break_timmer && allow_timed_outake && !timed_outake){ //locks motors into last recorded position to shoot ball at the end
+        if(break_timer && allow_timed_outake && !timed_outake){ //locks motors into last recorded position to shoot ball at the end
             intake_motor_left.move_absolute(intake_position_hold_l, 100);
             intake_motor_right.move_absolute(intake_position_hold_r, 100);
         }
 
-        pros::lcd::set_text(2, std::to_string(timmer_limit));
+        pros::lcd::set_text(2, std::to_string(timer_limit));
         
         // required loop delay (do not edit)
         pros::Task::delay(this->opcontrol_delay_ms);
