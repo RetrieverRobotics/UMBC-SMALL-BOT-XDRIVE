@@ -18,6 +18,7 @@
 #include <time.h>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 using namespace pros;
 using namespace umbc;
@@ -62,7 +63,7 @@ class PIDController {
             totalError = 0;
         }
 
-        double calculatePID(double target, double current, int time_step){
+        double calculatePID(double target, double current, double time_step){
             error = target - current;
             changeError = (error - prev_error)/time_step;
             totalError += error * time_step;
@@ -270,11 +271,8 @@ void umbc::Robot::opcontrol() {
         }
 
         //Caps the speed state to the 2nd speed (I believe) and makes sure the lowest state is 0
-        if(speed_state_selector > 2){
-            speed_state_selector = 2;
-        }else if (speed_state_selector < 0){
-            speed_state_selector = 0;
-        }
+        speed_state_selector = std::clamp(speed_state_selector, 0, 2);
+
         driveState = (DRIVE_STATE)speed_state_selector;
         
         //INTAKE CONTROLS
@@ -319,13 +317,7 @@ void umbc::Robot::opcontrol() {
             score_speed_selector--;
         }
 
-        //might be able to use mod lokey; I'm leaving for now
-        if(score_speed_selector > 2){
-            score_speed_selector = 2;
-        }else if (score_speed_selector < 0){
-            score_speed_selector = 0;
-        }
-
+        score_speed_selector = std::clamp(score_speed_selector, 0, 2);
         SCORE_SPEED score_speed = (SCORE_SPEED)score_speed_selector;
 
         //RETURN TO DEFAULT
@@ -363,11 +355,7 @@ void umbc::Robot::opcontrol() {
                 arm_state_selector--;
             }
 
-            if(arm_state_selector > 1){
-                arm_state_selector = 1;
-            }else if (arm_state_selector < 0){
-                arm_state_selector = 0;
-            }
+            arm_state_selector = std::clamp(arm_state_selector, 0, 1);
             arm_state = (ARM_STATE)arm_state_selector;
         }
 
