@@ -99,7 +99,7 @@ class PIDController {
 #define ARM_MOTOR_LEFT          5
 
 //ports for intake motors (blue)
-#define INTAKE_MOTOR_LEFT                   12
+#define INTAKE_MOTOR_LEFT                   1
 #define INTAKE_MOTOR_RIGHT                  -13
 
 #define INTAKE_SINGLE_OUT_TIMMER       320
@@ -389,8 +389,8 @@ void umbc::Robot::opcontrol() {
                 intake_motor_right.move_velocity(0);
                 break;
             case INTAKE_STATE::INTAKE_ON:
-                intake_motor_left.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * -0.85);
-                intake_motor_right.move_velocity(MOTOR_BLUE_GEAR_MULTIPLIER * -0.85);
+                intake_motor_left.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER);
+                intake_motor_right.move_velocity(-MOTOR_BLUE_GEAR_MULTIPLIER);
                 break;
             case INTAKE_STATE::INTAKE_REVERSE:
                 if(score_speed == SCORE_SPEED::SLOW){
