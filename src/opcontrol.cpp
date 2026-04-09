@@ -19,26 +19,6 @@
 #include <vector>
 #include <cmath>
 
-//LOAD BEARING COMMENT: do not delete this comment or entire code will break >:(
-
-/*
-    CURRENT BUTTON BINDINGS
-    left-analog stick & right-analog stick - controls drive train
-    up/down dpad - drive train speed selector
-    left/right dpad - score speed selector
-    
-    A - arm override toggle
-    B - not binded
-    X - single ball outake
-    Y - OSOF button (oh shit of fuck, panic button to reset all states... ethan's words)
-
-    L1 - Lift arm (both in overide and normal operation)
-    L2 - Lower arm (both in overide and normal operation)
-
-    R1 - toggle intake
-    R2 - toggle outake (speed based on current score speed state)
-*/
-
 using namespace pros;
 using namespace umbc;
 using namespace std;
@@ -204,6 +184,7 @@ void umbc::Robot::opcontrol() {
     
     enum class ARM_STATE{ //implement HIGH_GOAL if the bot can reach it
         REST,
+        DESCORE,
         MID_GOAL,
         OVERRIDE
     };
@@ -359,7 +340,7 @@ void umbc::Robot::opcontrol() {
                 arm_state_selector--;
             }
 
-            if(arm_state_selector > 1){
+            if(arm_state_selector > 2){
                 arm_state_selector = 1;
             }else if (arm_state_selector < 0){
                 arm_state_selector = 0;
@@ -371,6 +352,10 @@ void umbc::Robot::opcontrol() {
         switch (arm_state){
             case ARM_STATE::REST:
                 armTarget = REST_POSITION;
+                break;
+            
+            case ARM_STATE::DESCORE:
+                armTarget = MID_GOAL_POSITION * 0.6;
                 break;
                 
             case ARM_STATE::MID_GOAL:
