@@ -68,8 +68,8 @@ class PIDController {
             prev_error = error;
 
             //capping totalError to prevent possible overshooting
-            if(totalError > 500) totalError = 500;
-            if(totalError < -500) totalError = -500;
+            if(totalError > 450) totalError = 450;
+            if(totalError < -450) totalError = -450;
 
             double pidCalc = kp * error + ki * totalError + kd * changeError + kBias;
             double pidCalc_scaled = pidCalc * 12000 / 100;
@@ -105,12 +105,13 @@ class PIDController {
 #define INTAKE_SINGLE_OUT_TIMMER       320
 
 #define REST_POSITION           20    //low goal
+#define DESCORE_POSITION       -550    //mid goal
 #define MID_GOAL_POSITION      -915    //mid goal
 
 
 #define KP                   0.1
-#define KD                   0.65
-#define KI                   0.01
+#define KD                   2.75
+#define KI                   0.025
 #define KBIAS                -15        //for gravity
 double leftArmMotorZero = 0;
 double rightArmMotorZero = 0;
@@ -355,7 +356,7 @@ void umbc::Robot::opcontrol() {
                 break;
             
             case ARM_STATE::DESCORE:
-                armTarget = MID_GOAL_POSITION * 0.6;
+                armTarget = DESCORE_POSITION;
                 break;
                 
             case ARM_STATE::MID_GOAL:
