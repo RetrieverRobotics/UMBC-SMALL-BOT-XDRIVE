@@ -100,7 +100,7 @@ class PIDController {
 
 //ports for intake motors (blue)
 #define INTAKE_MOTOR_LEFT                   1
-#define INTAKE_MOTOR_RIGHT                  -13
+#define INTAKE_MOTOR_RIGHT                  -17
 
 #define INTAKE_SINGLE_OUT_TIMMER       320
 
@@ -463,8 +463,6 @@ void umbc::Robot::opcontrol() {
             intake_motor_right.move_absolute(intake_position_hold_r, 100);
         }
 
-        pros::lcd::set_text(2, std::to_string(timmer_limit));
-        
         // required loop delay (do not edit)
         pros::Task::delay(this->opcontrol_delay_ms);
     }
